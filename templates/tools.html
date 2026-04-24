@@ -1,0 +1,784 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-5">
+    <h2 class="fw-bold">Advanced Tools</h2>
+    <p class="text-muted">Test your API integrations and send various message types directly from here.</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">API Tester</h5>
+                <div class="d-flex align-items-center">
+                    <label class="small fw-bold text-muted me-2">SENDER:</label>
+                    <select id="senderDevice" class="form-select form-select-sm rounded-pill" style="width: 180px;">
+                        {% if devices %}
+                            {% for phone in devices %}
+                            <option value="{{ phone }}">+{{ phone }}</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="">No device online</option>
+                        {% endif %}
+                    </select>
+                </div>
+            </div>
+            <div class="card-body">
+                <ul class="nav nav-pills mb-4 bg-light p-1 rounded-3 overflow-auto flex-nowrap" id="pills-tab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active rounded-3 small" id="pills-text-tab" data-bs-toggle="pill" data-bs-target="#pills-text" type="button" role="tab">Text</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-3 small" id="pills-image-tab" data-bs-toggle="pill" data-bs-target="#pills-image" type="button" role="tab">Image</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-3 small" id="pills-media-tab" data-bs-toggle="pill" data-bs-target="#pills-media" type="button" role="tab">Media</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-3 small" id="pills-interactive-tab" data-bs-toggle="pill" data-bs-target="#pills-interactive" type="button" role="tab">Interactive</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-3 small" id="pills-status-tab" data-bs-toggle="pill" data-bs-target="#pills-status" type="button" role="tab">Status</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-3 small" id="pills-others-tab" data-bs-toggle="pill" data-bs-target="#pills-others" type="button" role="tab">Others</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="pills-tabContent">
+                    <!-- Text Message Tab -->
+                    <div class="tab-pane fade show active" id="pills-text" role="tabpanel">
+                        <form id="textMsgForm" onsubmit="handleFormSubmit(event, 'text')">
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted">CHAT TYPE</label>
+                                    <select class="form-select rounded-3 chat-type-selector" onchange="toggleTargetInput(this, 'text')">
+                                        <option value="private">Private</option>
+                                        <option value="group">Group</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label small fw-bold text-muted">TARGET</label>
+                                    <input type="text" id="textTarget" class="form-control rounded-3 target-input" placeholder="628123456789" required>
+                                    <select id="textGroupTarget" class="form-select rounded-3 group-selector d-none">
+                                        <option value="">Select a group...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label small fw-bold text-muted">MESSAGE CONTENT</label>
+                                <textarea id="textContent" class="form-control rounded-3" rows="4" placeholder="Hello, this is a test message..." required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">MENTIONS (OPTIONAL)</label>
+                                <input type="text" id="textMentions" class="form-control rounded-3" placeholder="62812xxx, 62878xxx or 'all'">
+                                <div class="x-small text-muted mt-1">Tag specific numbers or type 'all' for group.</div>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 py-2 rounded-3">
+                                <i class="bi bi-send-fill me-2"></i> Send Text
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Image Message Tab -->
+                    <div class="tab-pane fade" id="pills-image" role="tabpanel">
+                        <form id="imageMsgForm" onsubmit="handleFormSubmit(event, 'image')">
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted">CHAT TYPE</label>
+                                    <select class="form-select rounded-3 chat-type-selector" onchange="toggleTargetInput(this, 'image')">
+                                        <option value="private">Private</option>
+                                        <option value="group">Group</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label small fw-bold text-muted">TARGET</label>
+                                    <input type="text" id="imageTarget" class="form-control rounded-3 target-input" placeholder="628123456789" required>
+                                    <select id="imageGroupTarget" class="form-select rounded-3 group-selector d-none">
+                                        <option value="">Select a group...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">IMAGE SOURCE</label>
+                                <div class="input-group">
+                                    <input type="url" id="imageUrl" class="form-control rounded-3-start" placeholder="https://example.com/image.jpg">
+                                    <input type="file" id="imageFile" class="d-none" accept="image/*" onchange="uploadLocalFile(this, 'imageUrl')">
+                                    <button class="btn btn-outline-secondary rounded-3-end" type="button" onclick="document.getElementById('imageFile').click()">
+                                        <i class="bi bi-upload"></i>
+                                    </button>
+                                </div>
+                                <div class="x-small text-muted mt-1">Enter URL or click upload icon to select local file.</div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label small fw-bold text-muted">CAPTION</label>
+                                <input type="text" id="imageCaption" class="form-control rounded-3" placeholder="Look at this image!">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">MENTIONS (OPTIONAL)</label>
+                                <input type="text" id="imageMentions" class="form-control rounded-3" placeholder="62812xxx, 62878xxx or 'all'">
+                                <div class="x-small text-muted mt-1">Tag specific numbers or type 'all' for group.</div>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 py-2 rounded-3">
+                                <i class="bi bi-image me-2"></i> Send Image
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Media Tab (Audio, Video, Document, Sticker) -->
+                    <div class="tab-pane fade" id="pills-media" role="tabpanel">
+                        <form id="mediaMsgForm" onsubmit="handleFormSubmit(event, 'media')">
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted">CHAT TYPE</label>
+                                    <select class="form-select rounded-3 chat-type-selector" onchange="toggleTargetInput(this, 'media')">
+                                        <option value="private">Private</option>
+                                        <option value="group">Group</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label small fw-bold text-muted">TARGET</label>
+                                    <input type="text" id="mediaTarget" class="form-control rounded-3 target-input" placeholder="628123456789" required>
+                                    <select id="mediaGroupTarget" class="form-select rounded-3 group-selector d-none">
+                                        <option value="">Select a group...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">MEDIA TYPE</label>
+                                <select id="mediaType" class="form-select rounded-3">
+                                    <option value="audio">Audio</option>
+                                    <option value="video">Video</option>
+                                    <option value="document">Document</option>
+                                    <option value="sticker">Sticker</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">MEDIA SOURCE</label>
+                                <div class="input-group">
+                                    <input type="url" id="mediaUrl" class="form-control rounded-3-start" placeholder="https://example.com/file.mp3">
+                                    <input type="file" id="mediaFileInput" class="d-none" onchange="uploadLocalFile(this, 'mediaUrl')">
+                                    <button class="btn btn-outline-secondary rounded-3-end" type="button" onclick="document.getElementById('mediaFileInput').click()">
+                                        <i class="bi bi-upload"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="mediaExtras">
+                                <div class="mb-4 form-check form-switch" id="pttContainer">
+                                    <input class="form-check-input" type="checkbox" id="mediaPtt">
+                                    <label class="form-check-label small" for="mediaPtt">Send as Voice Note (PTT)</label>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">MENTIONS (OPTIONAL)</label>
+                                <input type="text" id="mediaMentions" class="form-control rounded-3" placeholder="62812xxx, 62878xxx or 'all'">
+                                <div class="x-small text-muted mt-1">Tag specific numbers or type 'all' for group.</div>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 py-2 rounded-3">
+                                <i class="bi bi-file-earmark-play-fill me-2"></i> Send Media
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Interactive Message Tab -->
+                    <div class="tab-pane fade" id="pills-interactive" role="tabpanel">
+                        <form id="interactiveMsgForm" onsubmit="handleFormSubmit(event, 'interactive')">
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted">CHAT TYPE</label>
+                                    <select class="form-select rounded-3 chat-type-selector" onchange="toggleTargetInput(this, 'inter')">
+                                        <option value="private">Private</option>
+                                        <option value="group">Group</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label small fw-bold text-muted">TARGET</label>
+                                    <input type="text" id="interTarget" class="form-control rounded-3 target-input" placeholder="628123456789" required>
+                                    <select id="interGroupTarget" class="form-select rounded-3 group-selector d-none">
+                                        <option value="">Select a group...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-muted">HEADER MEDIA (URL/UPLOAD)</label>
+                                    <div class="input-group">
+                                        <input type="url" id="interMediaUrl" class="form-control rounded-3-start" placeholder="https://example.com/image.jpg">
+                                        <input type="file" id="interFile" class="d-none" onchange="uploadLocalFile(this, 'interMediaUrl')">
+                                        <button class="btn btn-outline-secondary rounded-3-end" type="button" onclick="document.getElementById('interFile').click()">
+                                            <i class="bi bi-upload"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-muted">MEDIA TYPE</label>
+                                    <select id="interMediaType" class="form-select rounded-3">
+                                        <option value="image">Image</option>
+                                        <option value="video">Video</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between">
+                                    <label class="form-label small fw-bold text-muted">JSON PAYLOAD</label>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-link text-decoration-none p-0 dropdown-toggle small" type="button" data-bs-toggle="dropdown">
+                                            Quick Templates
+                                        </button>
+                                        <ul class="dropdown-menu shadow border-0">
+                                            <li><a class="dropdown-item small" href="#" onclick="loadTemplate('button')">Quick Reply Buttons</a></li>
+                                            <li><a class="dropdown-item small" href="#" onclick="loadTemplate('cta')">URL Button (Link)</a></li>
+                                            <li><a class="dropdown-item small" href="#" onclick="loadTemplate('copy')">Copy Code Button</a></li>
+                                            <li><a class="dropdown-item small" href="#" onclick="loadTemplate('call')">Call Button</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <textarea id="interPayload" class="form-control rounded-3 font-monospace small" rows="10" required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">MENTIONS (OPTIONAL)</label>
+                                <input type="text" id="interMentions" class="form-control rounded-3" placeholder="62812xxx, 62878xxx or 'all'">
+                                <div class="x-small text-muted mt-1">Tag specific numbers or type 'all' for group.</div>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 py-2 rounded-3">
+                                <i class="bi bi-rocket-takeoff-fill me-2"></i> Send Interactive
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Status Message Tab -->
+                    <div class="tab-pane fade" id="pills-status" role="tabpanel">
+                        <form id="statusMsgForm" onsubmit="handleFormSubmit(event, 'wa_status')">
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted">TAG TYPE</label>
+                                    <select class="form-select rounded-3 chat-type-selector" onchange="toggleTargetInput(this, 'status')">
+                                        <option value="private">Manual</option>
+                                        <option value="group">Group</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label small fw-bold text-muted">MENTIONS / TAG</label>
+                                    <input type="text" id="statusTarget" class="form-control rounded-3 target-input" placeholder="62812xxx, 62878xxx or 'all'">
+                                    <select id="statusGroupTarget" class="form-select rounded-3 group-selector d-none">
+                                        <option value="">Select a group to tag...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">STATUS TYPE</label>
+                                <select id="statusType" class="form-select rounded-3">
+                                    <option value="text">Text Status</option>
+                                    <option value="image">Image Status</option>
+                                    <option value="video">Video Status</option>
+                                </select>
+                            </div>
+                            <div id="statusUrlContainer" class="mb-3 d-none">
+                                <label class="form-label small fw-bold text-muted">MEDIA SOURCE (URL/UPLOAD)</label>
+                                <div class="input-group">
+                                    <input type="url" id="statusUrl" class="form-control rounded-3-start" placeholder="https://example.com/status.mp4">
+                                    <input type="file" id="statusFile" class="d-none" onchange="uploadLocalFile(this, 'statusUrl')">
+                                    <button class="btn btn-outline-secondary rounded-3-end" type="button" onclick="document.getElementById('statusFile').click()">
+                                        <i class="bi bi-upload"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mb-3 form-check form-switch d-none" id="hdStatusContainer">
+                                <input class="form-check-input" type="checkbox" id="statusHd">
+                                <label class="form-check-label small fw-bold text-muted" for="statusHd">HD QUALITY</label>
+                                <div class="x-small text-info mt-1"><i class="bi bi-info-circle me-1"></i> Use high resolution images (min 720p) for best results.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">STATUS TEXT / CAPTION</label>
+                                <textarea id="statusText" class="form-control rounded-3" rows="3" placeholder="My status today..."></textarea>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label small fw-bold text-muted">MENTIONS (OPTIONAL)</label>
+                                <input type="text" id="statusMentions" class="form-control rounded-3" placeholder="62812xxx, 62878xxx or 'all'">
+                                <div class="x-small text-muted mt-1">Tag people in your status story.</div>
+                            </div>
+                            <button type="submit" class="btn btn-success w-100 py-2 rounded-3">
+                                <i class="bi bi- megaphone me-2"></i> Update Status
+                            </button>
+                        </form>
+                    </div>
+
+
+                    <!-- Others (Contact, Check Number, Status) -->
+                    <div class="tab-pane fade" id="pills-others" role="tabpanel">
+                        <div class="list-group list-group-flush">
+                            <div class="list-group-item px-0 border-0 mb-3">
+                                <h6 class="fw-bold small text-muted mb-3">CHECK WHATSAPP NUMBER</h6>
+                                <form onsubmit="handleFormSubmit(event, 'check')" class="input-group">
+                                    <input type="text" id="checkPhone" class="form-control rounded-start-3" placeholder="628123456789" required>
+                                    <button class="btn btn-outline-primary rounded-end-3" type="submit">Check</button>
+                                </form>
+                            </div>
+
+                            <div class="list-group-item px-0 border-0 mb-3">
+                                <h6 class="fw-bold small text-muted mb-3">JID CONVERTER (LID <-> PN)</h6>
+                                <form onsubmit="handleFormSubmit(event, 'convert')" class="input-group">
+                                    <input type="text" id="convertJid" class="form-control rounded-start-3" placeholder="user@lid or phone@s.whatsapp.net" required>
+                                    <button class="btn btn-outline-warning rounded-end-3" type="submit">Convert</button>
+                                </form>
+                                <div class="x-small text-muted mt-1">Convert between Linked ID (LID) and Phone Number (PN).</div>
+                            </div>
+                            
+                            <div class="list-group-item px-0 border-0 mb-3">
+                                <h6 class="fw-bold small text-muted mb-3">SEND CONTACT CARD</h6>
+                                <form onsubmit="handleFormSubmit(event, 'contact')">
+                                    <div class="row g-2">
+                                        <div class="col-md-4 mb-2">
+                                            <label class="form-label x-small fw-bold text-muted mb-1">CHAT TYPE</label>
+                                            <select class="form-select form-select-sm rounded-3 chat-type-selector" onchange="toggleTargetInput(this, 'contact')">
+                                                <option value="private">Private</option>
+                                                <option value="group">Group</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-8 mb-2">
+                                            <label class="form-label x-small fw-bold text-muted mb-1">TARGET</label>
+                                            <input type="text" id="contactTarget" class="form-control form-select-sm rounded-3 target-input" placeholder="Target Phone" required>
+                                            <select id="contactGroupTarget" class="form-select form-select-sm rounded-3 group-selector d-none">
+                                                <option value="">Select a group...</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <input type="text" id="contactName" class="form-control rounded-3 small" placeholder="Contact Name" required>
+                                        </div>
+                                        <div class="col-6">
+                                            <input type="text" id="contactPhone" class="form-control rounded-3 small" placeholder="Contact Phone" required>
+                                        </div>
+                                        <div class="col-12 mt-2">
+                                            <button class="btn btn-primary btn-sm w-100 rounded-3" type="submit">Send Contact</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div class="list-group-item px-0 border-0">
+                                <h6 class="fw-bold small text-muted mb-3">BOT STATUS</h6>
+                                <button class="btn btn-info btn-sm rounded-3 text-white" onclick="handleFormSubmit(null, 'status')">Get System Status</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm bg-dark text-white mb-4">
+            <div class="card-header bg-transparent py-3 border-bottom border-secondary">
+                <h5 class="fw-bold mb-0">API Response</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="small text-secondary mb-2 d-block">Endpoint URL:</label>
+                    <div class="p-2 bg-black rounded-3">
+                        <code class="text-info x-small break-all" id="apiUrlPreview">Waiting for action...</code>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="small text-secondary mb-2 d-block">JSON Output:</label>
+                    <div class="p-3 bg-black rounded-3 overflow-auto" style="max-height: 300px;">
+                        <pre class="mb-0"><code class="text-success x-small" id="apiResponsePreview">{}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="statusAlert" class="alert d-none rounded-3 border-0 small mb-4"></div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-shield-check fs-3 text-success"></i>
+                    </div>
+                    <div class="ms-3">
+                        <h6 class="fw-bold mb-1">Authentication</h6>
+                        <p class="x-small text-muted mb-0">All requests must include the <code>x-api-key</code> header with your unique key.</p>
+                        <code class="text-warning x-small">{{ api_key }}</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const apiKey = "{{ api_key }}";
+let groupList = [];
+
+function toggleTargetInput(select, tabPrefix) {
+    const isGroup = select.value === 'group';
+    const targetInput = document.getElementById(tabPrefix + 'Target');
+    const groupSelector = document.getElementById(tabPrefix + 'GroupTarget');
+    
+    if (isGroup) {
+        targetInput.classList.add('d-none');
+        targetInput.required = false;
+        groupSelector.classList.remove('d-none');
+        groupSelector.required = true;
+        
+        if (groupList.length === 0) {
+            fetchGroups();
+        }
+    } else {
+        targetInput.classList.remove('d-none');
+        targetInput.required = true;
+        groupSelector.classList.add('d-none');
+        groupSelector.required = false;
+    }
+}
+
+async function fetchGroups() {
+    const sender = document.getElementById('senderDevice').value;
+    if (!sender) return;
+    
+    const groupSelectors = document.querySelectorAll('.group-selector');
+    groupSelectors.forEach(s => s.innerHTML = '<option value="">Loading groups...</option>');
+    
+    try {
+        const res = await fetch(`/api/groups?phone=${sender}`, {
+            headers: { 'x-api-key': apiKey }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            groupList = data.groups;
+            let options = '<option value="">Select a group...</option>';
+            groupList.forEach(g => {
+                options += `<option value="${g.jid}">${g.name}</option>`;
+            });
+            groupSelectors.forEach(s => s.innerHTML = options);
+        } else {
+            groupSelectors.forEach(s => s.innerHTML = '<option value="">Failed to load groups</option>');
+        }
+    } catch (e) {
+        groupSelectors.forEach(s => s.innerHTML = '<option value="">Error loading groups</option>');
+    }
+}
+
+// Fetch groups when sender changes
+document.getElementById('senderDevice').addEventListener('change', () => {
+    groupList = []; // Reset cache on device change
+    fetchGroups();
+});
+
+// Auto fetch on load
+window.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('senderDevice').value) {
+        fetchGroups();
+    }
+});
+
+async function uploadLocalFile(input, targetId) {
+    if (!input.files || input.files.length === 0) return;
+    
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const alert = document.getElementById('statusAlert');
+    const targetInput = document.getElementById(targetId);
+    
+    // UI Feedback
+    targetInput.value = "Uploading file...";
+    targetInput.disabled = true;
+
+    try {
+        const res = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            targetInput.value = data.url;
+        } else {
+            alert.classList.remove('d-none');
+            alert.classList.add('alert-danger');
+            alert.innerHTML = `<i class="bi bi-exclamation-octagon me-2"></i> Upload failed: ${data.detail || 'Unknown error'}`;
+            targetInput.value = "";
+        }
+    } catch (e) {
+        alert.classList.remove('d-none');
+        alert.classList.add('alert-danger');
+        alert.innerHTML = `<i class="bi bi-wifi-off me-2"></i> Network error during upload`;
+        targetInput.value = "";
+    } finally {
+        targetInput.disabled = false;
+        input.value = ""; // Reset file input
+    }
+}
+
+function loadTemplate(type) {
+    let payload = {};
+    if (type === 'button') {
+        payload = {
+            "body": {"text": "Halo! Silakan pilih opsi di bawah:"},
+            "footer": {"text": "MustikaPay Bot"},
+            "nativeFlowMessage": {
+                "buttons": [
+                    {"name": "quick_reply", "buttonParamsJSON": "{\"display_text\":\"Saldo Saya\",\"id\":\".saldo\"}"},
+                    {"name": "quick_reply", "buttonParamsJSON": "{\"display_text\":\"Bantuan\",\"id\":\".help\"}"}
+                ]
+            }
+        };
+    } else if (type === 'list') {
+        payload = {
+            "body": {"text": "Silakan pilih layanan kami:"},
+            "nativeFlowMessage": {
+                "buttons": [{
+                    "name": "single_select",
+                    "buttonParamsJSON": JSON.stringify({
+                        "title": "Pilih Menu",
+                        "sections": [{
+                            "title": "Layanan Utama",
+                            "rows": [
+                                {"title": "Top Up", "id": "1", "description": "Isi saldo dompet digital"},
+                                {"title": "Withdraw", "id": "2", "description": "Tarik saldo ke bank"}
+                            ]
+                        }]
+                    })
+                }]
+            }
+        };
+    } else if (type === 'cta') {
+        payload = {
+            "body": {"text": "Klik tombol di bawah untuk membuka website:"},
+            "footer": {"text": "Informasi Website"},
+            "nativeFlowMessage": {
+                "buttons": [
+                    {"name": "cta_url", "buttonParamsJSON": "{\"display_text\":\"🌐 Buka Website\",\"url\":\"https://google.com\",\"merchant_url\":\"https://google.com\"}"}
+                ]
+            }
+        };
+    } else if (type === 'copy') {
+        payload = {
+            "body": {"text": "Gunakan kode promo berikut untuk mendapatkan diskon!"},
+            "footer": {"text": "Promo Terbatas"},
+            "nativeFlowMessage": {
+                "buttons": [
+                    {"name": "cta_copy", "buttonParamsJSON": "{\"display_text\":\"📋 Salin Kode Promo\",\"id\":\"PROMO2024\",\"copy_code\":\"MUSTIKAPAY2024\"}"}
+                ]
+            }
+        };
+    } else if (type === 'call') {
+        payload = {
+            "body": {"text": "Butuh bantuan segera? Hubungi CS kami."},
+            "nativeFlowMessage": {
+                "buttons": [
+                    {"name": "cta_call", "buttonParamsJSON": "{\"display_text\":\"📞 Hubungi CS\",\"phone_number\":\"628123456789\"}"}
+                ]
+            }
+        };
+    }
+    document.getElementById('interPayload').value = JSON.stringify(payload, null, 4);
+}
+
+// Initial template
+loadTemplate('button');
+
+// Handle media type changes
+document.getElementById('mediaType')?.addEventListener('change', function() {
+    const val = this.value;
+    const ptt = document.getElementById('pttContainer');
+    if (val === 'audio') ptt.classList.remove('d-none');
+    else ptt.classList.add('d-none');
+});
+
+// Handle status type changes
+document.getElementById('statusType')?.addEventListener('change', function() {
+    const val = this.value;
+    const urlContainer = document.getElementById('statusUrlContainer');
+    const hdContainer = document.getElementById('hdStatusContainer');
+    if (val === 'image' || val === 'video') {
+        urlContainer.classList.remove('d-none');
+        hdContainer.classList.remove('d-none');
+    } else {
+        urlContainer.classList.add('d-none');
+        hdContainer.classList.add('d-none');
+    }
+});
+
+async function handleFormSubmit(event, type) {
+    if (event) event.preventDefault();
+    
+    let url = '';
+    const alert = document.getElementById('statusAlert');
+    const responseView = document.getElementById('apiResponsePreview');
+    const urlView = document.getElementById('apiUrlPreview');
+    const sender = document.getElementById('senderDevice').value;
+    
+    if (!sender && type !== 'status') {
+        alert.classList.remove('d-none');
+        alert.classList.add('alert-warning');
+        alert.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i> Please select/connect a sender device first.`;
+        return;
+    }
+
+    alert.classList.add('d-none');
+    responseView.innerText = "Loading...";
+
+    const getTarget = (prefix) => {
+        const input = document.getElementById(prefix + 'Target');
+        if (!input || input.classList.contains('d-none')) {
+            return document.getElementById(prefix + 'GroupTarget').value;
+        }
+        return input.value;
+    };
+
+    const getMentions = (prefix) => {
+        const input = document.getElementById(prefix + 'Mentions');
+        return input ? encodeURIComponent(input.value) : '';
+    };
+    
+    if (type === 'text') {
+        const to = getTarget('text');
+        const text = encodeURIComponent(document.getElementById('textContent').value);
+        const mentions = getMentions('text');
+        url = `/api/send-message?to=${to}&text=${text}&mentions=${mentions}&phone=${sender}`;
+    } else if (type === 'image') {
+        const to = getTarget('image');
+        const img = encodeURIComponent(document.getElementById('imageUrl').value);
+        const cap = encodeURIComponent(document.getElementById('imageCaption').value);
+        const mentions = getMentions('image');
+        url = `/api/send-image?to=${to}&image_url=${img}&caption=${cap}&mentions=${mentions}&phone=${sender}`;
+    } else if (type === 'media') {
+        const to = getTarget('media');
+        const mtype = document.getElementById('mediaType').value;
+        const murl = encodeURIComponent(document.getElementById('mediaUrl').value);
+        const mentions = getMentions('media');
+        if (mtype === 'audio') {
+            const ptt = document.getElementById('mediaPtt').checked;
+            url = `/api/send-audio?to=${to}&audio_url=${murl}&ptt=${ptt}&phone=${sender}`;
+        } else if (mtype === 'video') {
+            url = `/api/send-video?to=${to}&video_url=${murl}&mentions=${mentions}&phone=${sender}`;
+        } else if (mtype === 'document') {
+            url = `/api/send-document?to=${to}&document_url=${murl}&filename=document&phone=${sender}`;
+        } else if (mtype === 'sticker') {
+            url = `/api/send-sticker?to=${to}&sticker_url=${murl}&phone=${sender}`;
+        }
+    } else if (type === 'interactive') {
+        const to = getTarget('inter');
+        const mediaUrl = document.getElementById('interMediaUrl').value;
+        const mediaType = document.getElementById('interMediaType').value;
+        const payloadStr = document.getElementById('interPayload').value;
+        const mentions = document.getElementById('interMentions').value;
+        let payload;
+        try {
+            payload = JSON.parse(payloadStr);
+            
+            // Inject header media if provided
+            if (mediaUrl) {
+                if (!payload.header) payload.header = {};
+                payload.header.hasMediaAttachment = true;
+                if (mediaType === 'image') {
+                    payload.header.imageMessage = { URL: mediaUrl };
+                } else {
+                    payload.header.videoMessage = { URL: mediaUrl };
+                }
+            }
+        } catch(e) {
+            alert.classList.remove('d-none');
+            alert.classList.add('alert-danger');
+            alert.innerHTML = `<i class="bi bi-exclamation-octagon me-2"></i> Invalid JSON Payload`;
+            return;
+        }
+
+        url = `/api/send-interactive`;
+        urlView.innerText = window.location.origin + url + " [POST]";
+
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 
+                    'x-api-key': apiKey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ to: to, payload: payload, phone: sender, mentions: mentions })
+            });
+            const data = await res.json();
+
+            responseView.innerText = JSON.stringify(data, null, 2);
+            alert.classList.remove('d-none', 'alert-danger', 'alert-success');
+
+            if (res.ok) {
+                alert.classList.add('alert-success');
+                alert.innerHTML = `<i class="bi bi-check-circle me-2"></i> Action Successful`;
+            } else {
+                alert.classList.add('alert-danger');
+                alert.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i> Error: ${data.detail || 'Request failed'}`;
+            }
+        } catch (e) {
+            responseView.innerText = "Error: " + e.message;
+            alert.classList.remove('d-none');
+            alert.classList.add('alert-danger');
+            alert.innerHTML = `<i class="bi bi-wifi-off me-2"></i> Network Error`;
+        }
+        return;
+    } else if (type === 'wa_status') {
+        const sType = document.getElementById('statusType').value;
+        const sText = encodeURIComponent(document.getElementById('statusText').value);
+        const sUrl = encodeURIComponent(document.getElementById('statusUrl').value);
+        const sHd = document.getElementById('statusHd').checked;
+        const sMentions = encodeURIComponent(getTarget('status'));
+        url = `/api/send-status?type=${sType}&text=${sText}&url=${sUrl}&hd=${sHd}&mentions=${sMentions}&phone=${sender}`;
+    } else if (type === 'check') {
+        const phone = document.getElementById('checkPhone').value;
+        url = `/api/check-number?phone_to_check=${phone}&phone=${sender}`;
+    } else if (type === 'convert') {
+        const jid = document.getElementById('convertJid').value;
+        url = `/api/convert-jid?jid=${jid}&phone=${sender}`;
+    } else if (type === 'contact') {
+        const to = document.getElementById('contactTarget').value;
+        const name = encodeURIComponent(document.getElementById('contactName').value);
+        const phone = encodeURIComponent(document.getElementById('contactPhone').value);
+        url = `/api/send-contact?to=${to}&contact_name=${name}&contact_number=${phone}&phone=${sender}`;
+    } else if (type === 'status') {
+        url = `/api/status?phone=${sender}`;
+    }
+
+    urlView.innerText = window.location.origin + url;
+    
+    try {
+        const res = await fetch(url, {
+            method: 'GET',
+            headers: { 'x-api-key': apiKey }
+        });
+        const data = await res.json();
+        
+        responseView.innerText = JSON.stringify(data, null, 2);
+        alert.classList.remove('d-none', 'alert-danger', 'alert-success');
+        
+        if (res.ok) {
+            alert.classList.add('alert-success');
+            alert.innerHTML = `<i class="bi bi-check-circle me-2"></i> Action Successful`;
+        } else {
+            alert.classList.add('alert-danger');
+            alert.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i> Error: ${data.detail || 'Request failed'}`;
+        }
+    } catch (e) {
+        responseView.innerText = "Error: " + e.message;
+        alert.classList.remove('d-none');
+        alert.classList.add('alert-danger');
+        alert.innerHTML = `<i class="bi bi-wifi-off me-2"></i> Network Error`;
+    }
+}
+</script>
+
+<style>
+    .x-small { font-size: 0.75rem; }
+    .break-all { word-break: break-all; }
+    #pills-tab::-webkit-scrollbar { display: none; }
+    #pills-tab { -ms-overflow-style: none; scrollbar-width: none; }
+    .nav-pills .nav-link { white-space: nowrap; margin-right: 5px; color: #6c757d; }
+    .nav-pills .nav-link.active { background-color: #0d6efd; color: white; }
+</style>
+{% endblock %}

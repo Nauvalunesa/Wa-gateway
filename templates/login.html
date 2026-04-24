@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block login_content %}
+<div class="row justify-content-center align-items-center vh-100 bg-light">
+    <div class="col-md-5 col-lg-4">
+        <div class="text-center mb-4">
+            <div class="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle mb-3" style="width: 64px; height: 64px;">
+                <i class="bi bi-whatsapp fs-2"></i>
+            </div>
+            <h3 class="fw-bold">Welcome Back</h3>
+            <p class="text-muted small">Sign in to manage your WhatsApp Gateway</p>
+        </div>
+        
+        <div class="card border-0 shadow-lg p-4 rounded-4">
+            {% if error %}
+            <div class="alert alert-danger border-0 small py-2 text-center mb-4">
+                <i class="bi bi-exclamation-circle me-2"></i> {{ error }}
+            </div>
+            {% endif %}
+
+            <form action="/login" method="post">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">USERNAME</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-secondary"></i></span>
+                        <input type="text" name="username" class="form-control bg-light border-start-0" placeholder="Enter username" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small fw-bold text-muted">PASSWORD</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock text-secondary"></i></span>
+                        <input type="password" name="password" class="form-control bg-light border-start-0" placeholder="Enter password" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-2 rounded-3 mb-3">
+                    {% if redirect_to_register %}Register New Account{% else %}Sign In{% endif %}
+                </button>
+            </form>
+            
+            <div class="text-center">
+                {% if redirect_to_register %}
+                <a href="/register" class="btn btn-outline-primary btn-sm w-100 rounded-3">Register Now</a>
+                {% else %}
+                <p class="small text-muted mb-0">Don't have an account? <a href="/register" class="text-primary text-decoration-none fw-bold">Register</a></p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <p class="small text-muted">&copy; 2026 MustikaPay Gateway. All rights reserved.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

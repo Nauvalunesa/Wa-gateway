@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-5">
+    <h2 class="fw-bold">Message Blast</h2>
+    <p class="text-muted">Send bulk messages with personalization and anti-ban protection.</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <form id="blastForm">
+                    <!-- Device Selection -->
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted">SELECT SENDING DEVICES</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if devices %}
+                                {% for phone in devices %}
+                                <div class="form-check form-check-inline bg-light p-2 px-3 rounded-3 border">
+                                    <input class="form-check-input" type="checkbox" name="devices" value="{{ phone }}" id="dev_{{ phone }}" checked>
+                                    <label class="form-check-label small fw-bold" for="dev_{{ phone }}">
+                                        +{{ phone }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-warning w-100 small mb-0">
+                                    <i class="bi bi-exclamation-triangle me-2"></i> No devices connected. Please connect a device first.
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="form-text mt-2">If multiple devices are selected, messages will be rotated between them (Load Balancing).</div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Data Source -->
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted">DATA SOURCE (CSV)</label>
+                        <div class="input-group">
+                            <input type="file" id="csvFile" class="form-control" accept=".csv">
+                        </div>
+                        <div class="form-text mt-2">CSV must have a <code>phone</code> column. Other columns can be used as placeholders like <code>{name}</code>.</div>
+                    </div>
+
+                    <!-- Manual Input (Alternative) -->
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted">OR MANUAL INPUT (phone,name)</label>
+                        <textarea id="manualData" class="form-control font-monospace small" rows="4" placeholder="628123456789,Budi&#10;628987654321,Ani"></textarea>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <!-- Message Template -->
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted">MESSAGE TEMPLATE</label>
+                        <textarea id="messageTemplate" class="form-control rounded-3" rows="6" placeholder="Halo {name}, ini adalah pesan blast." required></textarea>
+                        <div class="form-text mt-2">Use curly braces for variables from your CSV/Manual input.</div>
+                    </div>
+
+                    <!-- Anti-Ban Settings -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">MIN DELAY (SEC)</label>
+                            <input type="number" id="delayMin" class="form-control" value="5" min="1">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">MAX DELAY (SEC)</label>
+                            <input type="number" id="delayMax" class="form-control" value="15" min="2">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-3 rounded-4" id="btnStart" {% if not devices %}disabled{% endif %}>
+                        <i class="bi bi-rocket-takeoff-fill me-2"></i> START BLAST CAMPAIGN
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Live Progress (Conceptual) -->
+        <div class="card border-0 shadow-sm mb-4 d-none" id="progressCard">
+            <div class="card-header bg-white py-3">
+                <h6 class="fw-bold mb-0">Campaign Progress</h6>
+            </div>
+            <div class="card-body text-center p-4">
+                <div class="spinner-border text-primary mb-3" role="status"></div>
+                <h4 class="fw-bold mb-1" id="progressStatus">Starting...</h4>
+                <p class="text-muted small mb-0">Blast is running in background. You can close this page or check logs for updates.</p>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3"><i class="bi bi-lightbulb text-warning me-2"></i>Tips Anti-Ban</h6>
+                <ul class="small text-muted ps-3 mb-0">
+                    <li class="mb-2">Gunakan jeda (delay) minimal 10-30 detik antar pesan.</li>
+                    <li class="mb-2">Gunakan fitur personalisasi agar isi pesan setiap orang berbeda.</li>
+                    <li class="mb-2">Rotasi pengiriman dengan menggunakan lebih dari satu device (Multi-Device).</li>
+                    <li>Hindari mengirim pesan ke nomor yang belum pernah berinteraksi sebelumnya.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('blastForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const devices = Array.from(document.querySelectorAll('input[name="devices"]:checked')).map(cb => cb.value);
+    const message = document.getElementById('messageTemplate').value;
+    const delayMin = parseInt(document.getElementById('delayMin').value);
+    const delayMax = parseInt(document.getElementById('delayMax').value);
+    const csvFile = document.getElementById('csvFile').files[0];
+    const manualData = document.getElementById('manualData').value;
+    
+    if (devices.length === 0) {
+        alert('Please select at least one device');
+        return;
+    }
+
+    let phoneData = [];
+    
+    // Process CSV if exists
+    if (csvFile) {
+        const text = await csvFile.text();
+        const lines = text.split('\n');
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const cols = lines[i].split(',').map(c => c.trim());
+            let obj = {};
+            headers.forEach((h, idx) => {
+                obj[h] = cols[idx];
+            });
+            if (obj.phone) phoneData.push(obj);
+        }
+    } 
+    // Otherwise process manual data
+    else if (manualData) {
+        const lines = manualData.split('\n');
+        lines.forEach(line => {
+            if (!line.trim()) return;
+            const [phone, name] = line.split(',').map(s => s.trim());
+            if (phone) phoneData.push({ phone, name });
+        });
+    }
+
+    if (phoneData.length === 0) {
+        alert('No phone data found. Please upload CSV or enter manual data.');
+        return;
+    }
+
+    if (!confirm(`Start blast to ${phoneData.length} contacts using ${devices.length} devices?`)) return;
+
+    const btn = document.getElementById('btnStart');
+    btn.disabled = true;
+    document.getElementById('progressCard').classList.remove('d-none');
+
+    try {
+        const res = await fetch('/api/blast', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                phone_data: phoneData,
+                message: message,
+                delay_min: delayMin,
+                delay_max: delayMax,
+                devices: devices
+            })
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('progressStatus').innerText = "Campaign Started!";
+            document.getElementById('progressStatus').classList.add('text-success');
+            setTimeout(() => {
+                window.location.href = '/logs';
+            }, 2000);
+        } else {
+            alert('Error: ' + (data.detail || 'Failed to start blast'));
+            btn.disabled = false;
+        }
+    } catch (e) {
+        alert('Network Error: ' + e.message);
+        btn.disabled = false;
+    }
+});
+</script>
+{% endblock %}

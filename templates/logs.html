@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-5 d-flex justify-content-between align-items-end">
+    <div>
+        <h2 class="fw-bold">Message Logs</h2>
+        <p class="text-muted mb-0">Review your incoming and outgoing WhatsApp communications.</p>
+    </div>
+    <div class="text-end">
+        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="window.location.reload()">
+            <i class="bi bi-arrow-clockwise me-1"></i> Refresh Logs
+        </button>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm overflow-hidden">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4 py-3">Timestamp</th>
+                        <th class="py-3">Type</th>
+                        <th class="py-3">Target / Sender</th>
+                        <th class="py-3">Message Content</th>
+                        <th class="text-end pe-4 py-3">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="ps-4 small text-muted">{{ log.timestamp }}</td>
+                        <td>
+                            {% if "[OUT]" in log.message_text %}
+                            <span class="badge bg-primary-subtle text-primary rounded-pill px-2">OUTGOING</span>
+                            {% elif "[IN]" in log.message_text %}
+                            <span class="badge bg-info-subtle text-info rounded-pill px-2">INCOMING</span>
+                            {% else %}
+                            <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2">SYSTEM</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="fw-semibold">{{ log.sender_id }}</div>
+                        </td>
+                        <td>
+                            <div class="text-wrap" style="max-width: 400px;">{{ log.message_text }}</div>
+                        </td>
+                        <td class="text-end pe-4">
+                            <span class="text-success"><i class="bi bi-check2-all me-1"></i> Delivered</span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="bi bi-chat-left-dots fs-1 d-block mb-3 opacity-25"></i>
+                            <p class="mb-0">No communication history found yet.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

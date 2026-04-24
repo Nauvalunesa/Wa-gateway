@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-5">
+    <h2 class="fw-bold">Device Management</h2>
+    <p class="text-muted">Link and manage multiple WhatsApp sessions using Pairing Code.</p>
+</div>
+
+<!-- Add Device Section -->
+<div class="card border-0 shadow-sm overflow-hidden mb-5">
+    <div class="row g-0">
+        <div class="col-md-5 bg-primary text-white p-5 d-flex flex-column justify-content-center">
+            <h3 class="fw-bold mb-4">Add New Device</h3>
+            <p class="opacity-75 mb-4">Enter a phone number to generate a pairing code for a new WhatsApp session.</p>
+            <ul class="list-unstyled small">
+                <li class="mb-2 d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <span>Supports multiple devices per account</span>
+                </li>
+                <li class="mb-0 d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <span>Sessions are stored by phone number</span>
+                </li>
+            </ul>
+        </div>
+        <div class="col-md-7 p-5">
+            <form id="pairForm">
+                <div class="mb-4">
+                    <label class="form-label text-muted small fw-bold">PHONE NUMBER</label>
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-telephone text-primary"></i></span>
+                        <input type="text" id="phoneNumber" class="form-control bg-light border-start-0" placeholder="628123456789" required>
+                    </div>
+                    <div class="form-text mt-2">Include country code without + (e.g., 62 for Indonesia).</div>
+                </div>
+                <button class="btn btn-primary btn-lg w-100 rounded-4" type="submit" id="btnPair">
+                    <span id="btnText">Generate Pairing Code</span>
+                </button>
+            </form>
+
+            <div id="loading" class="d-none mt-4 text-center">
+                <div class="spinner-border text-primary mb-2" role="status"></div>
+                <p class="text-muted small mb-0">Communicating with WhatsApp servers...</p>
+            </div>
+
+            <div id="result" class="mt-4 d-none">
+                <div class="p-4 bg-light rounded-4 border border-primary border-dashed text-center">
+                    <p class="text-muted small fw-bold mb-2">YOUR CODE IS READY</p>
+                    <h1 id="pairingCode" class="display-4 fw-bold text-primary mb-3 letter-spacing-5" style="letter-spacing: 10px;"></h1>
+                    <p class="small text-muted mb-0">Enter this code on your phone to complete linking.</p>
+                </div>
+            </div>
+
+            <div id="errorBox" class="alert alert-danger d-none mt-4 rounded-4 border-0 shadow-sm"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Linked Devices List -->
+<h4 class="fw-bold mb-4">Your Linked Devices</h4>
+<div class="row" id="devicesList">
+    {% if devices %}
+        {% for device in devices %}
+        <div class="col-md-6 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-primary-subtle text-primary p-3 rounded-4 me-3">
+                                <i class="bi bi-phone fs-4"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-0">+{{ device.phone }}</h5>
+                                <span class="badge {% if device.is_connected %}bg-success{% else %}bg-danger{% endif %} rounded-pill">
+                                    {{ 'ONLINE' if device.is_connected else 'OFFLINE' }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-light btn-sm rounded-circle" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end border-0 shadow-sm">
+                                <li><a class="dropdown-item text-danger" href="javascript:void(0)" onclick="logoutDevice('{{ device.phone }}')">
+                                    <i class="bi bi-trash me-2"></i> {{ 'Logout' if device.is_connected else 'Clear Session' }}
+                                </a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12">
+            <div class="p-5 text-center bg-light rounded-4">
+                <i class="bi bi-link-45deg display-4 text-muted mb-3 d-block"></i>
+                <p class="text-muted">No devices linked yet. Use the form above to add your first device.</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPollingPhone = null;
+
+document.getElementById('pairForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const phoneInput = document.getElementById('phoneNumber').value.replace(/\D/g, '');
+    const btn = document.getElementById('btnPair');
+    const btnText = document.getElementById('btnText');
+    const loading = document.getElementById('loading');
+    const result = document.getElementById('result');
+    const errBox = document.getElementById('errorBox');
+    
+    btn.disabled = true;
+    btnText.classList.add('opacity-0');
+    loading.classList.remove('d-none');
+    result.classList.add('d-none');
+    errBox.classList.add('d-none');
+
+    try {
+        const formData = new URLSearchParams();
+        formData.append('phone', phoneInput);
+
+        const res = await fetch('/api/pair', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            document.getElementById('pairingCode').innerText = data.code;
+            result.classList.remove('d-none');
+            currentPollingPhone = phoneInput;
+            pollConnection(phoneInput);
+        } else {
+            errBox.innerText = data.detail || 'Failed to get pairing code. Try again later.';
+            errBox.classList.remove('d-none');
+        }
+    } catch (e) {
+        errBox.innerText = 'Network error: ' + e.message;
+        errBox.classList.remove('d-none');
+    } finally {
+        btn.disabled = false;
+        btnText.classList.remove('opacity-0');
+        loading.classList.add('d-none');
+    }
+});
+
+async function logoutDevice(phone) {
+    if (!confirm(`Are you sure you want to logout/delete session for +${phone}?`)) return;
+    
+    try {
+        const formData = new URLSearchParams();
+        formData.append('phone', phone);
+        
+        const res = await fetch('/api/logout_device', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (res.ok) {
+            window.location.reload();
+        } else {
+            const data = await res.json();
+            alert(data.detail || 'Failed to logout');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+function pollConnection(phone) {
+    const timer = setInterval(async () => {
+        try {
+            const res = await fetch(`/api/internal_status?phone=${phone}`); 
+            const data = await res.json();
+            if (data.status === 'online') {
+                clearInterval(timer);
+                alert(`Device +${phone} connected successfully!`);
+                window.location.reload();
+            }
+        } catch(e) {}
+    }, 2000); // 2 seconds for faster feedback
+}
+</script>
+{% endblock %}
