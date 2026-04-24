@@ -52,7 +52,7 @@ A high-performance WhatsApp Gateway built with **FastAPI** and **Neonize**, supp
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/yourusername/wa-gateway.git
+   git clone https://github.com/Nauvalunesa/Wa-gateway.git
    cd wa-gateway
    ```
 
