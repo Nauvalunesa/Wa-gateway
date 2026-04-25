@@ -6,6 +6,7 @@ pydantic
 jinja2
 python-multipart
 starlette
+itsdangerous
 protobuf
 # Optional but often used with FastAPI/Neonize
 python-dotenv
