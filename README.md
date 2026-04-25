@@ -56,16 +56,29 @@ A high-performance WhatsApp Gateway built with **FastAPI** and **Neonize**, supp
    cd wa-gateway
    ```
 
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+2. **Create and activate a virtual environment (recommended)**:
+  ```bash
+  python -m venv .venv
+  # PowerShell
+  .\.venv\Scripts\Activate.ps1
+  # CMD
+  .venv\Scripts\activate.bat
+  ```
 
-3. **Run the application**:
-   ```bash
-   python main.py
-   ```
-   Default dashboard URL: `http://localhost:8880`
+3. **Install dependencies**:
+  ```bash
+  python -m pip install -r requirements.txt
+  ```
+
+4. **Run the application**:
+  ```bash
+  python main.py
+  ```
+  If you do not activate the virtual environment, run:
+  ```bash
+  .\.venv\Scripts\python.exe main.py
+  ```
+  Default dashboard URL: `http://localhost:8880`
 
 ## 📖 API Usage Example
 
