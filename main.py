@@ -391,7 +391,7 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None)) -> str:
 async def login_page(request: Request):
     if request.session.get("user"):
         return RedirectResponse(url="/")
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request, "login.html", {"request": request})
 
 @app.post("/login", include_in_schema=False)
 async def do_login(request: Request, username: str = Form(...), password: str = Form(...)):
@@ -401,7 +401,7 @@ async def do_login(request: Request, username: str = Form(...), password: str = 
             user_exists = await cursor.fetchone()
             if not user_exists:
                 # User not found, redirect to register with info
-                return templates.TemplateResponse("login.html", {
+                return templates.TemplateResponse(request, "login.html", {
                     "request": request, 
                     "error": "Account not found. Please register first.",
                     "redirect_to_register": True
@@ -415,16 +415,16 @@ async def do_login(request: Request, username: str = Form(...), password: str = 
                 await init_user_db(username)
                 return RedirectResponse(url="/", status_code=303)
             else:
-                return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid password"})
+                return templates.TemplateResponse(request, "login.html", {"request": request, "error": "Invalid password"})
 
 @app.get("/register", response_class=HTMLResponse, include_in_schema=False)
 async def register_page(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
+    return templates.TemplateResponse(request, "register.html", {"request": request})
 
 @app.post("/register", include_in_schema=False)
 async def do_register(request: Request, username: str = Form(...), password: str = Form(...)):
     if not username.isalnum():
-        return templates.TemplateResponse("register.html", {"request": request, "error": "Username must be alphanumeric"})
+        return templates.TemplateResponse(request, "register.html", {"request": request, "error": "Username must be alphanumeric"})
         
     new_api_key = secrets.token_hex(16)
     async with aiosqlite.connect(system_db_path) as db:
@@ -433,7 +433,7 @@ async def do_register(request: Request, username: str = Form(...), password: str
             await db.commit()
             return RedirectResponse(url="/login", status_code=303)
         except Exception:
-            return templates.TemplateResponse("register.html", {"request": request, "error": "Username already exists"})
+            return templates.TemplateResponse(request, "register.html", {"request": request, "error": "Username already exists"})
 
 @app.get("/logout", include_in_schema=False)
 async def logout(request: Request):
@@ -477,7 +477,7 @@ async def dashboard(request: Request):
             is_connected = True
             connected_devices.append(sid.split(":")[1])
             
-    return templates.TemplateResponse("dashboard.html", {
+    return templates.TemplateResponse(request, "dashboard.html", {
         "request": request,
         "user": user,
         "api_key": api_key,
@@ -506,7 +506,7 @@ async def devices_page(request: Request):
                     "bot_number": bot_numbers.get(session_id, phone)
                 })
     
-    return templates.TemplateResponse("devices.html", {
+    return templates.TemplateResponse(request, "devices.html", {
         "request": request,
         "user": user,
         "devices": user_devices
@@ -524,7 +524,7 @@ async def logs_page(request: Request):
                 columns = [col[0] for col in cursor.description]
                 logs = [dict(zip(columns, row)) for row in await cursor.fetchall()]
 
-    return templates.TemplateResponse("logs.html", {
+    return templates.TemplateResponse(request, "logs.html", {
         "request": request,
         "user": user,
         "logs": logs
@@ -548,7 +548,7 @@ async def tools_page(request: Request):
                 if bot_status.get(session_id, False):
                     user_devices.append(phone)
 
-    return templates.TemplateResponse("tools.html", {
+    return templates.TemplateResponse(request, "tools.html", {
         "request": request,
         "user": user,
         "api_key": api_key,
@@ -565,7 +565,7 @@ async def blast_page(request: Request):
         if sid.startswith(f"{user}:") and status:
             user_devices.append(sid.split(":")[1])
             
-    return templates.TemplateResponse("blast.html", {
+    return templates.TemplateResponse(request, "blast.html", {
         "request": request,
         "user": user,
         "devices": user_devices
