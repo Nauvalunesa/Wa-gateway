@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-5 d-flex justify-content-between align-items-end">
+    <div>
+        <h2 class="fw-bold">Message History</h2>
+        <p class="text-muted mb-0">Track all communication flow through your gateway.</p>
+    </div>
+    <div class="text-end">
+        <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="window.location.reload()">
+            <i class="bi bi-arrow-clockwise me-1"></i> Sync Logs
+        </button>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm overflow-hidden">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4 py-3" style="width: 180px;">Timestamp</th>
+                        <th class="py-3" style="width: 120px;">Type</th>
+                        <th class="py-3">From / To</th>
+                        <th class="py-3">Content</th>
+                        <th class="text-end pe-4 py-3" style="width: 150px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="small fw-bold text-dark">{{ log.timestamp.split(' ')[0] }}</div>
+                            <div class="x-small text-muted">{{ log.timestamp.split(' ')[1] }}</div>
+                        </td>
+                        <td>
+                            {% if log.type == "OUTGOING" %}
+                            <span class="badge bg-primary rounded-pill x-small px-2">SENT</span>
+                            {% elif log.type == "INCOMING" %}
+                            <span class="badge bg-success rounded-pill x-small px-2">RECEIVED</span>
+                            {% else %}
+                            <span class="badge bg-secondary rounded-pill x-small px-2">SYSTEM</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex flex-column">
+                                <span class="x-small text-muted fw-bold">SENDER:</span>
+                                <span class="small font-monospace text-primary">{{ log.sender }}</span>
+                                <span class="x-small text-muted fw-bold mt-1">RECEIVER:</span>
+                                <span class="small font-monospace text-dark">{{ log.receiver }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="message-bubble {% if log.type == 'OUTGOING' %}bg-primary-subtle{% else %}bg-light{% endif %} p-2 rounded-3 border">
+                                <div class="text-wrap small" style="max-width: 500px; word-break: break-word;">
+                                    {% if log.message.startswith('[IMAGE]') %}
+                                        <i class="bi bi-image me-1"></i> <span class="text-info">Photo Message</span>
+                                        <div class="x-small text-muted mt-1">{{ log.message }}</div>
+                                    {% elif log.message.startswith('[VIDEO]') %}
+                                        <i class="bi bi-play-circle me-1"></i> <span class="text-info">Video Message</span>
+                                        <div class="x-small text-muted mt-1">{{ log.message }}</div>
+                                    {% elif log.message.startswith('[AUDIO]') %}
+                                        <i class="bi bi-mic me-1"></i> <span class="text-info">Audio Message</span>
+                                    {% elif log.message.startswith('[DOCUMENT]') %}
+                                        <i class="bi bi-file-earmark-text me-1"></i> <span class="text-info">Document</span>
+                                        <div class="x-small text-muted mt-1">{{ log.message }}</div>
+                                    {% else %}
+                                        {{ log.message }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="text-end pe-4">
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-primary rounded-start-pill" onclick="resendMessage({{ log.id }})" title="Resend">
+                                    <i class="bi bi-reply-all"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary rounded-end-pill" onclick="copyContent(this.getAttribute('data-message'))" data-message="{{ log.message }}" title="Copy Content">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="bi bi-journal-text fs-1 d-block mb-3 opacity-25"></i>
+                            <p class="mb-0 fw-bold">No message logs available.</p>
+                            <p class="x-small">Your communication history will appear here.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="logAlert" class="alert d-none position-fixed bottom-0 end-0 m-4 shadow-lg rounded-3 border-0" style="z-index: 9999;"></div>
+
+<script>
+async function resendMessage(id) {
+    if (!confirm('Resend this message?')) return;
+    
+    const alert = document.getElementById('logAlert');
+    alert.className = 'alert alert-info d-block position-fixed bottom-0 end-0 m-4';
+    alert.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Resending...';
+    
+    try {
+        const res = await fetch(`/api/resend?log_id=${id}`, {
+            headers: { 'x-api-key': '{{ api_key }}' }
+        });
+        const data = await res.json();
+        
+        alert.className = `alert alert-${data.success ? 'success' : 'danger'} d-block position-fixed bottom-0 end-0 m-4`;
+        alert.innerHTML = data.success ? 'Message resent successfully!' : `Failed: ${data.detail}`;
+        
+        if (data.success) {
+            setTimeout(() => window.location.reload(), 1500);
+        }
+    } catch (e) {
+        alert.className = 'alert alert-danger d-block position-fixed bottom-0 end-0 m-4';
+        alert.innerHTML = 'Network error during resend';
+    }
+}
+
+function copyContent(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        const alert = document.getElementById('logAlert');
+        alert.className = 'alert alert-success d-block position-fixed bottom-0 end-0 m-4';
+        alert.innerHTML = 'Content copied to clipboard!';
+        setTimeout(() => alert.classList.add('d-none'), 2000);
+    });
+}
+</script>
+
+<style>
+    .x-small { font-size: 0.7rem; }
+    .message-bubble { 
+        display: inline-block;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .font-monospace { font-family: 'Courier New', Courier, monospace; }
+</style>
+{% endblock %}
