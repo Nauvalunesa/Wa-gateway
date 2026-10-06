@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, ArrowUpRight, CheckCircle2, Code2, Download, Eye, EyeOff, KeyRound, Link2, Plus, RefreshCw, Search, ShieldCheck, Smartphone, Trash2, X } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, CheckCircle2, Download, Eye, EyeOff, KeyRound, Link2, Plus, RefreshCw, Search, ShieldCheck, Smartphone, Trash2, X } from 'lucide-react'
 import Papa from 'papaparse'
 import { api, post, query, useResource, type Device, type Log } from './api'
 import { Badge, Button, Card, CardTitle, CopyButton, Empty, ErrorBox, Field, Heading, Loading, LogTable, Modal, useToast } from './components'

@@ -11,10 +11,8 @@ from contextlib import asynccontextmanager
 import aiosqlite
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, Form, Depends, Header, File, UploadFile, Query
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse
 import shutil
-import subprocess
-import tempfile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, Dict, List, Union, Any, Literal
@@ -37,7 +35,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from neonize_runtime import GatewayClient as NewAClient
 from neonize.utils.enum import VoteType
-from neonize.aioze.events import ConnectedEv, MessageEv, DisconnectedEv, LoggedOutEv, QREv, ConnectFailureEv, KeepAliveTimeoutEv, KeepAliveRestoredEv, CallOfferEv, NewsletterJoinEv
+from neonize.aioze.events import ConnectedEv, MessageEv, DisconnectedEv, LoggedOutEv, ConnectFailureEv, KeepAliveTimeoutEv, KeepAliveRestoredEv, CallOfferEv, NewsletterJoinEv
 from neonize.proto.Neonize_pb2 import JID
 from neonize.proto.waE2E.WAWebProtobufsE2E_pb2 import Message as WAMessage, ContextInfo, ExtendedTextMessage, InteractiveMessage, AIRichResponseMessage, FutureProofMessage, MessageContextInfo
 from neonize.proto.waAICommonDeprecated.WAAICommonDeprecated_pb2 import AIRichResponseSubMessage
@@ -62,7 +60,6 @@ AIRICH_CARDS = {
     "post": AIRichPost,
 }
 
-# ... (imports)
 
 async def get_mentions_list(client, target_jid, mentions_str):
     if not mentions_str:
@@ -121,13 +118,6 @@ async def get_mentions_list(client, target_jid, mentions_str):
     print(f"✅ Total unique mentions: {len(final_list)}")
     return final_list
 
-async def process_video(url: str, request: Request = None, hd: bool = False) -> str:
-    """
-    Returns the original URL without compression.
-    (Compression via FFmpeg was disabled as requested)
-    """
-    return url
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -178,7 +168,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def restrict_internal_routes(request: Request, call_next):
-    public_prefixes = ["/assets/", "/favicon.svg", "/api/send-", "/api/status", "/api/check-", "/api/device/", "/api/groups", "/api/group-info", "/api/convert-jid", "/api/newsletter/", "/api/airich/", "/api/passkey/", "/api/blast", "/docs", "/openapi.json", "/static"]
+    public_prefixes = ["/assets/", "/favicon.svg", "/api/send-", "/api/status", "/api/check-", "/api/device/", "/api/groups", "/api/group-info", "/api/convert-jid", "/api/newsletter/", "/api/airich/", "/api/blast", "/docs", "/openapi.json", "/static"]
     if not any(request.url.path.startswith(prefix) for prefix in public_prefixes):
         host = request.headers.get("host", "")
         allowed = os.getenv("GATEWAY_ALLOWED_HOSTS", "utusan.chat,localhost:8880,127.0.0.1:8880,localhost:5173,127.0.0.1:5173,testserver").split(",")
@@ -223,15 +213,11 @@ os.makedirs("storage", exist_ok=True)
 os.makedirs("static", exist_ok=True)
 os.makedirs("static/uploads", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-# ... (imports)
 clients: Dict[str, NewAClient] = {}
 bot_status: Dict[str, bool] = {}
 bot_numbers: Dict[str, str] = {}
 pairing_sessions = set() # Track sessions that are currently pairing
 client_cleanup_tasks = set()
-passkey_requests: Dict[str, Any] = {}
-passkey_confirmations: Dict[str, Any] = {}
-passkey_errors: Dict[str, Any] = {}
 airich_auto_rules: Dict[str, List[Dict[str, Any]]] = {}
 airich_auto_seen: Dict[str, float] = {}
 airich_auto_last: Dict[tuple[str, str, str], float] = {}
@@ -340,6 +326,8 @@ async def init_user_db(username: str):
 async def log_message(username: str, sender: str, receiver: str, message: str, msg_type: str = "SYSTEM"):
     db_path = f"storage/{username}/history/logs.db"
     try:
+        if not os.path.exists(db_path):
+            await init_user_db(username)
         async with aiosqlite.connect(db_path) as db:
             await db.execute(
                 "INSERT INTO logs (timestamp, sender, receiver, message, type) VALUES (?, ?, ?, ?, ?)",
@@ -347,7 +335,7 @@ async def log_message(username: str, sender: str, receiver: str, message: str, m
             )
             await db.commit()
     except Exception as e:
-        if "no column named sender" in str(e) or "no column named type" in str(e):
+        if "no column named sender" in str(e) or "no column named type" in str(e) or "no such table: logs" in str(e):
             await init_user_db(username)
             # Retry after migration
             try:
@@ -825,37 +813,6 @@ async def request_pairing_code(user: str, phone: str):
         else:
             pairing_sessions.discard(session_id)
 
-@app.get("/api/passkey/poll", include_in_schema=False)
-async def poll_passkey(phone: str, request: Request):
-    user = request.session.get("user")
-    if not user: raise HTTPException(status_code=401, detail="Unauthorized")
-    session_id = f"{user}:{normalize_wa(phone)}"
-    print(f"🔍 [DEBUG POLL] phone={phone}, session_id={session_id}, passkey_requests_keys={list(passkey_requests.keys())}")
-
-    if session_id in passkey_errors:
-        err = passkey_errors.pop(session_id)
-        return {"status": "error", "error": err}
-
-    if session_id in passkey_confirmations:
-        conf = passkey_confirmations.pop(session_id)
-        return {"status": "confirm", "data": conf}
-
-    if session_id in passkey_requests:
-        pubkey = passkey_requests.get(session_id)
-        return {
-            "status": "request",
-            "publicKey": MessageToDict(pubkey) if hasattr(pubkey, "DESCRIPTOR") else pubkey
-        }
-
-    return {"status": "waiting"}
-
-@app.post("/api/passkey/response", include_in_schema=False)
-@app.post("/api/passkey/confirm", include_in_schema=False)
-async def unsupported_passkey(request: Request):
-    if not request.session.get("user"):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    raise HTTPException(status_code=501, detail="Neonize 0.5.2 does not support passkey pairing; use a pairing code")
-
 @app.get("/api/device/download_session", include_in_schema=False)
 async def download_session(phone: str, format: str = Query("sqlite"), request: Request = None):
     user = request.session.get("user")
@@ -1277,14 +1234,14 @@ async def api_send_video(request: Request, to: str, video_url: str, caption: Opt
         raise HTTPException(status_code=503, detail="WhatsApp client is not connected")
     target_jid = get_target_jid(to)
     try:
-        # Optimize video for WhatsApp
-        optimized_url = await process_video(video_url, request, hd=hd)
+        # Resolve local media URLs
+        resolved_url = video_url
         # If it's a local path, convert to public URL for neonize to download (or neonize might handle local paths)
-        if optimized_url.startswith("static/"):
+        if resolved_url.startswith("static/"):
             base_url = str(request.base_url).rstrip("/")
-            video_url_to_send = f"{base_url}/{optimized_url}"
+            video_url_to_send = f"{base_url}/{resolved_url}"
         else:
-            video_url_to_send = optimized_url
+            video_url_to_send = resolved_url
 
         mentioned_jids = await get_mentions_list(client, target_jid, mentions)
         if mentioned_jids or hd or viewonce:
@@ -1698,11 +1655,11 @@ async def api_send_interactive_get(request: Request, to: str, payload: str, medi
                         media_to_send = f.read()
 
             if media_type == "video":
-                optimized_url = await process_video(media_url, request, hd=hd)
-                if optimized_url.startswith("static/"):
-                    video_url_to_send = f"{base_url}/{optimized_url}"
+                resolved_url = media_url
+                if resolved_url.startswith("static/"):
+                    video_url_to_send = f"{base_url}/{resolved_url}"
                 else:
-                    video_url_to_send = optimized_url
+                    video_url_to_send = resolved_url
                 res = await client.build_video_message(video_url_to_send)
                 data["header"]["videoMessage"] = MessageToDict(res.videoMessage)
             else:
@@ -1732,12 +1689,12 @@ async def api_send_interactive_get(request: Request, to: str, payload: str, medi
                     val = header["videoMessage"]
                     url = val if isinstance(val, str) else val.get("URL") or val.get("url")
                     if url and not url.startswith("https://mmg.whatsapp.net"):
-                        optimized_url = await process_video(url, request, hd=hd)
-                        if optimized_url.startswith("static/"):
+                        resolved_url = url
+                        if resolved_url.startswith("static/"):
                             base_url = str(request.base_url).rstrip("/")
-                            video_url_to_send = f"{base_url}/{optimized_url}"
+                            video_url_to_send = f"{base_url}/{resolved_url}"
                         else:
-                            video_url_to_send = optimized_url
+                            video_url_to_send = resolved_url
                         res = await client.build_video_message(video_url_to_send)
                         header["videoMessage"] = MessageToDict(res.videoMessage)
         mentioned_jids = await get_mentions_list(client, target_jid, mentions)
@@ -1799,13 +1756,12 @@ async def api_send_interactive_post(request: Request, data: InteractivePayload, 
                     media_url_to_process = f.read()
 
         if data.media_type == "video":
-            # For video, we still use process_video which might need a URL or we could adapt it
             # But for now, let's keep it as is or handle local path
-            optimized_url = await process_video(data.media_url, request, hd=data.hd)
-            if optimized_url.startswith("static/"):
-                video_url_to_send = f"{base_url}/{optimized_url}"
+            resolved_url = data.media_url
+            if resolved_url.startswith("static/"):
+                video_url_to_send = f"{base_url}/{resolved_url}"
             else:
-                video_url_to_send = optimized_url
+                video_url_to_send = resolved_url
             res = await client.build_video_message(video_url_to_send)
             payload["header"]["videoMessage"] = MessageToDict(res.videoMessage)
         else:
@@ -1835,12 +1791,12 @@ async def api_send_interactive_post(request: Request, data: InteractivePayload, 
                 val = header["videoMessage"]
                 url = val if isinstance(val, str) else val.get("URL") or val.get("url")
                 if url and not url.startswith("https://mmg.whatsapp.net"):
-                    optimized_url = await process_video(url, request, hd=data.hd)
-                    if optimized_url.startswith("static/"):
+                    resolved_url = url
+                    if resolved_url.startswith("static/"):
                         base_url = str(request.base_url).rstrip("/")
-                        video_url_to_send = f"{base_url}/{optimized_url}"
+                        video_url_to_send = f"{base_url}/{resolved_url}"
                     else:
-                        video_url_to_send = optimized_url
+                        video_url_to_send = resolved_url
                     res = await client.build_video_message(video_url_to_send)
                     header["videoMessage"] = MessageToDict(res.videoMessage)
 
@@ -2236,21 +2192,13 @@ async def api_send_status(request: Request, type: str, text: Optional[str] = "",
                 await client.send_image(status_jid, media_to_send, caption=text)
             await log_message(username, f"DEVICE({p})", "status@broadcast", f"[STATUS IMAGE] {url} | {text} ", "OUTGOING")
         elif type == "video":
-            # Optimize video for Status
-            video_to_process = url
-            if not url and isinstance(media_to_send, bytes):
-                # If we have bytes but no URL, we might need to write to a temp file first
-                # But process_video expects a URL or local path string.
-                # For status, it's better if we always have a URL.
-                pass
-
             if url:
-                optimized_url = await process_video(url, request, hd=hd)
-                if optimized_url.startswith("static/"):
+                resolved_url = url
+                if resolved_url.startswith("static/"):
                     base_url = str(request.base_url).rstrip("/")
-                    media_to_send = f"{base_url}/{optimized_url}"
+                    media_to_send = f"{base_url}/{resolved_url}"
                 else:
-                    media_to_send = optimized_url
+                    media_to_send = resolved_url
 
             if mentioned_jids or hd:
                 msg = await client.build_video_message(media_to_send, caption=text)
@@ -2314,14 +2262,14 @@ async def api_send_group_status(request: Request, to: str, type: str, text: Opti
                 temp_msg.imageMessage.contextInfo.mentionedJID.extend(mentioned_jids)
             inner_msg.imageMessage.CopyFrom(temp_msg.imageMessage)
         elif type == "video":
-            # Optimize video for Status
+            # Resolve local media URLs
             if url:
-                optimized_url = await process_video(url, request, hd=hd)
-                if optimized_url.startswith("static/"):
+                resolved_url = url
+                if resolved_url.startswith("static/"):
                     base_url = str(request.base_url).rstrip("/")
-                    media_to_send = f"{base_url}/{optimized_url}"
+                    media_to_send = f"{base_url}/{resolved_url}"
                 else:
-                    media_to_send = optimized_url
+                    media_to_send = resolved_url
 
             temp_msg = await client.build_video_message(media_to_send, caption=text)
             if mentioned_jids:

@@ -1,8 +1,8 @@
-import { createContext, useContext, useEffect, useState, type ReactNode, type FormEvent } from 'react'
+import { createContext, useContext, useEffect, useState, type FormEvent } from 'react'
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { Activity, ArrowDownLeft, Bot, ArrowRight, ArrowUpRight, BookOpen, Check, ChevronDown, ChevronRight, Code2, Eye, EyeOff, LayoutDashboard, LogOut, Menu, MessageCircle, Moon, Sun, Radio, Send, Settings2, ShieldCheck, Smartphone, Sparkles, Users, X, Zap, KeyRound } from 'lucide-react'
+import { Activity, Bot, ArrowRight, ArrowUpRight, BookOpen, Check, ChevronDown, ChevronRight, Code2, Eye, EyeOff, LayoutDashboard, LogOut, Menu, MessageCircle, Moon, Sun, Radio, Send, Settings2, ShieldCheck, Smartphone, Sparkles, Users, X, KeyRound } from 'lucide-react'
 import { api, post, useResource, formatNumber, type User, type Overview, type Device } from './api'
-import { ArrowLink, Badge, Button, Card, CardTitle, CopyButton, Empty, ErrorBox, Field, Heading, Loading, LogTable, ToastProvider, useToast } from './components'
+import { ArrowLink, Badge, Button, Card, CardTitle, Empty, ErrorBox, Field, Heading, Loading, LogTable, ToastProvider, useToast } from './components'
 import { DevicesPage, LogsPage, SettingsPage } from './WorkspacePages'
 import { MessagingPage, RichPage, BroadcastPage, ChannelsPage, AutoReplyPage } from './MessagePages'
 

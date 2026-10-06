@@ -2,7 +2,6 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 import asyncio
-import json
 import secrets
 import sqlite3
 from typing import Literal
