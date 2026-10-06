@@ -1,0 +1,120 @@
+/* Soft surfaces and readable text for the light theme. */
+:root:not([data-theme="dark"]) {
+  color-scheme: light;
+  --accent: #ae4422;
+  --line: #cbd5ca;
+  --muted: #53665b;
+  --light-background: #e8ede5;
+  --light-surface: #f2f5ee;
+  --light-input: #eaf0e6;
+  --light-ink: #22372b;
+  --light-caption: #53665b;
+  background: var(--light-background);
+  color: var(--light-ink);
+}
+
+:root:not([data-theme="dark"]) :is(body, .main-shell, .page-content) {
+  background: var(--light-background);
+  color: var(--light-ink);
+}
+:root:not([data-theme="dark"]) .sidebar { background: #dfe7dc; border-color: var(--line); }
+:root:not([data-theme="dark"]) .topbar { background: #eaf0e6; }
+:root:not([data-theme="dark"]) :is(.card, .modal, .action-row, .toast) {
+  background: var(--light-surface);
+  border-color: var(--line);
+  color: var(--light-ink);
+}
+:root:not([data-theme="dark"]) :is(.workspace-switch, .connection-widget, .action-builder-title, .quick-card, .api-key-panel, .response, .broadcast-preview, .rich-preview-content, .rich-preview-card) {
+  background: #e7eee2;
+  border-color: var(--line);
+  color: var(--light-ink);
+}
+:root:not([data-theme="dark"]) :is(.page-heading p, .card-title p, .field small, .field-hint, .muted, .eyebrow, .breadcrumb, .docs-link, .nav-label, .brand small, .workspace-switch small, .sidebar-version, .page-footer, .device-card p, .device-summary-list small, .device-details, .steps-grid p, .small-tip p, .developer-strip p, .connection-widget p, .stat-card p, .chart-scale, .chart-day small, .chart-caption, .chart-caption>span:last-child, .section-label, .empty p, .quick-card p, .upload-drop span, .chat-preview-header small, .bubble-time, .contact-preview small, .rich-preview-content>small, .rich-preview-card small, .rich-block-header>div>span, .info-note, .pagination, .modal>p, .modal form>p, .pair-success p, .check-row>label, .check-label) {
+  color: var(--light-caption);
+}
+:root:not([data-theme="dark"]) :is(.field>span, .sidebar nav>a, .settings-link, .logout-button, .topbar-left strong, .stat-top, .quick-card h3, .empty h3, .small-tip strong, .developer-strip h3, .device-details strong, .steps-grid h3, .details-list dt, .details-list dd, .connection-widget a, .upload-drop strong, .chat-preview-header strong, .rich-block-header strong, .rich-preview-content>h3, .rich-preview-block p, .rich-preview-card strong, .broadcast-preview p, .recipient-preview, .response pre) {
+  color: #354f3e;
+}
+:root:not([data-theme="dark"]) :is(input:not([type=checkbox]), textarea, select) {
+  background: var(--light-input);
+  color: var(--light-ink);
+  border-color: #aabda7;
+}
+:root:not([data-theme="dark"]) :is(input, textarea)::placeholder {
+  color: #596f5e;
+  opacity: 1;
+}
+:root:not([data-theme="dark"]) :is(input, textarea, select):focus {
+  border-color: #8d3d23;
+  box-shadow: 0 0 0 3px #ae442225;
+}
+:root:not([data-theme="dark"]) :is(.btn-secondary, .message-type-arrow) {
+  background: #e3ebdd;
+  border-color: #b7c7b2;
+  color: #304c39;
+}
+:root:not([data-theme="dark"]) .btn-secondary:hover:not(:disabled) { background: #d5e2ce; }
+:root:not([data-theme="dark"]) :is(.btn-ghost, .icon-button, .search-input, .search-input button) { color: #4a6451; }
+:root:not([data-theme="dark"]) .btn-primary { background: var(--accent); color: #fff; }
+:root:not([data-theme="dark"]) .btn-primary:hover:not(:disabled) { background: #913a1f; }
+:root:not([data-theme="dark"]) :is(.text-link, .field a) { color: #914022; }
+:root:not([data-theme="dark"]) :is(.sidebar nav>a.active, .settings-link.active) { background: #e9d6c6; color: #853d22; }
+:root:not([data-theme="dark"]) :is(.sidebar nav>a:hover, .settings-link:hover, .logout-button:hover, .icon-button:hover) { background: #d0ddc9; }
+:root:not([data-theme="dark"]) :is(.workspace-avatar, .device-small-icon, .large-icon, .quick-icon, .empty-icon, .preview-avatar, .contact-avatar) {
+  background: #d7e4ce;
+  border-color: #bfcfb6;
+  color: #3b5a40;
+}
+:root:not([data-theme="dark"]) :is(.tag, .badge.offline, .nav-new, .blocks-heading h2>span, .suggestions>span) {
+  background: #e0e9d8;
+  color: #425b3a;
+  border-color: #bdcdb3;
+}
+:root:not([data-theme="dark"]) .badge.online { background: #d8e9d0; color: #345c2c; }
+:root:not([data-theme="dark"]) .green { background: #dce8d4; color: #3e6035; }
+:root:not([data-theme="dark"]) .orange { background: #ecdfd1; color: #86441e; }
+:root:not([data-theme="dark"]) .blue { background: #dfe7ee; color: #3d536f; }
+:root:not([data-theme="dark"]) :is(.type-tabs, .chat-preview-body) { background-color: #dde7d5; border-color: #b9cbb1; }
+:root:not([data-theme="dark"]) .type-tabs button { color: #435b37; }
+:root:not([data-theme="dark"]) .type-tabs button.active { background: #f1e2d3; color: #833c22; }
+:root:not([data-theme="dark"]) .chat-preview-header { background: #e9efe2; }
+:root:not([data-theme="dark"]) .message-bubble { background: #cfdfe3; border-color: #aabfc3; color: #223b3b; }
+:root:not([data-theme="dark"]) .message-bubble p { color: #294444; }
+:root:not([data-theme="dark"]) :is(.preview-live, .location-preview) { color: #31593d; }
+:root:not([data-theme="dark"]) .media-placeholder { background: #bfd2d3; color: #365456; }
+:root:not([data-theme="dark"]) .preview-list { background: #e7eee2; border-color: #aebfa5; }
+:root:not([data-theme="dark"]) :is(.upload-drop, .info-strip, .developer-strip, .small-tip, .pair-code-panel) {
+  background: #e4ecde;
+  border-color: #b3c5aa;
+  color: #48633c;
+}
+:root:not([data-theme="dark"]) :is(.info-strip strong, .info-strip span) { color: #3d5831; }
+:root:not([data-theme="dark"]) :is(.pair-code-panel strong, .studio-label) { color: #7c4925; }
+:root:not([data-theme="dark"]) .studio-label { background: #ede0ce; border-color: #cbb899; }
+:root:not([data-theme="dark"]) .pair-code-panel>div:not(.eyebrow) { color: #4b6242; }
+:root:not([data-theme="dark"]) .pair-success { color: #3f6635; }
+:root:not([data-theme="dark"]) :is(.rich-block-header svg, .preview-block-icon, .developer-icon) { color: #4d683e; }
+:root:not([data-theme="dark"]) .rich-preview-code>span { color: #c2d3b0; }
+:root:not([data-theme="dark"]) table th { background: #e0e9d8; color: #42563c; border-color: #bdcdb3; }
+:root:not([data-theme="dark"]) table td { color: #354f3e; border-color: #c4d0be; }
+:root:not([data-theme="dark"]) .rich-preview-table { background: var(--light-surface); }
+:root:not([data-theme="dark"]) .toast.error { color: #8b352b; border-color: #c98d81; }
+:root:not([data-theme="dark"]) .field-error { color: #962e28; }
+:root:not([data-theme="dark"]) .user-avatar { color: #705538; }
+:root:not([data-theme="dark"]) .steps-grid>div>span { color: #576e4c; }
+
+/* Keep the dark story panel; soften only the authentication form. */
+:root:not([data-theme="dark"]) .auth-v2 .auth-form-side { background: var(--light-background); }
+:root:not([data-theme="dark"]) .auth-v2 .auth-form-side :is(.auth-top, .auth-switch, .auth-security, .auth-copyright, .auth-form>p, .eyebrow, .field small, .password-strength small) { color: #53665b; }
+:root:not([data-theme="dark"]) .auth-v2 .auth-form-side :is(.auth-top>a, .auth-switch>a) { color: #914022; }
+:root:not([data-theme="dark"]) .auth-v2 .auth-form-side input { background: var(--light-input); color: var(--light-ink); border-color: #aabda7; }
+:root:not([data-theme="dark"]) .auth-v2 .auth-form-side input::placeholder { color: #596f5e; }
+:root:not([data-theme="dark"]) .auth-v2 .auth-form>.btn { background: var(--accent); color: #fff; }
+:root:not([data-theme="dark"]) .auth-v2 .auth-story .brand small { color: #aacaba; }
+:root:not([data-theme="dark"]) .auth-v2 .visual-avatar { color: #63492c; }
+:root:not([data-theme="dark"]) .auth-v2 .visual-message strong { color: #66513d; }
+:root:not([data-theme="dark"]) .auth-v2 .visual-time { color: #78634a; }
+:root:not([data-theme="dark"]) .auth-v2 .visual-reply>span { color: #e0eadb; }
+:root:not([data-theme="dark"]) .auth-v2 .visual-float { color: #785736; }
+:root:not([data-theme="dark"]) .auth-v2 .visual-float strong { color: #684927; }
+:root:not([data-theme="dark"]) .auth-v2 .auth-footnote { color: #a4c5b4; }

@@ -1,0 +1,9 @@
+{
+  "name": "wa-gateway-console",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {"dev": "vite --host 127.0.0.1", "build": "tsc --noEmit && vite build", "test": "playwright test"},
+  "dependencies": {"react": "^19.2.0", "react-dom": "^19.2.0", "react-router-dom": "^7.9.0", "lucide-react": "^0.468.0", "papaparse": "^5.5.3", "@fontsource-variable/inter": "^5.2.8"},
+  "devDependencies": {"@vitejs/plugin-react": "^5.0.0", "vite": "^7.1.0", "typescript": "^5.9.0", "@types/react": "^19.2.0", "@types/react-dom": "^19.2.0", "@types/papaparse": "^5.3.16", "tailwindcss": "^4.1.0", "@tailwindcss/vite": "^4.1.0", "@playwright/test": "^1.56.0"}
+}

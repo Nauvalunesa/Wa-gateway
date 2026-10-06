@@ -85,7 +85,7 @@ class QuotedMess:
 
     async def reply(self, text):
         msg = ms.get_message(self.id)
-        return await self.client.reply_message(text, msg[0].proto)
+        return await self.client.reply_message(text, msg[0])
 
     async def download(self):
         return await self.client.download_any(self.message)
@@ -164,7 +164,7 @@ class Mess:
     def __post_init__(self):
         self.info = self.message.Info
         self.source = self.info.MessageSource
-        self.get_msg_type = get_message_type(self.message)
+        self.get_msg_type = get_message_type(self.message.Message)
         self.sender = self.source.Sender
         self.sender_alt = getattr(self.source, "SenderAlt", None)
         self.chat = self.source.Chat

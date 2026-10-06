@@ -1,0 +1,14 @@
+.env
+.venv/
+.venv312/
+.python/
+__pycache__/
+*.py[cod]
+.nicegui/
+storage/*
+!storage/.gitkeep
+static/uploads/*
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/

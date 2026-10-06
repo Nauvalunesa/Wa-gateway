@@ -1,13 +1,14 @@
 fastapi
 uvicorn
 aiosqlite
-neonize
+neonize==0.5.2
 pydantic
-jinja2
 python-multipart
 starlette
 itsdangerous
-protobuf
+protobuf>=6.32.1,<8
 # Optional but often used with FastAPI/Neonize
 python-dotenv
 aiohttp
+passlib
+bcrypt>=3.2,<4
