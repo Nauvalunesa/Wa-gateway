@@ -46,6 +46,7 @@ Screenshot memakai data ilustrasi untuk memperlihatkan UI, bukan statistik akun 
 - [Troubleshooting](#troubleshooting)
 - [Pengujian](#pengujian)
 - [Struktur repository](#struktur-repository)
+- [Mengembangkan backend](#mengembangkan-backend)
 - [Lisensi](#lisensi)
 
 ## Stack
@@ -944,15 +945,23 @@ Tanpa `TEST_BASE_URL`, Playwright memakai `http://127.0.0.1:18880`. Tes browser 
 ## Struktur repository
 
 ```text
-main.py                    API dan event WhatsApp
-neonize_runtime.py         Isolasi thread koneksi dan kontrol worker
-serialize.py               Parsing pesan dan quoted message
-msg_store.py               Penyimpanan pesan di memori
-dashboard_api.py           API cookie dashboard dan serving frontend
+main.py                    Entry point Uvicorn (python main.py / PM2)
+gateway/application.py     Penyusunan aplikasi dan registrasi router
+gateway/config.py          Environment, direktori runtime, signing key
+gateway/lifecycle.py       Startup, pemulihan sesi, shutdown
+gateway/middleware.py      Pembatasan host dashboard
+gateway/security.py        Hash password, autentikasi cookie/API key
+gateway/database.py        Inisialisasi SQLite, migrasi, history
+gateway/state.py           Registry klien dan cache bersama
+gateway/whatsapp/          Koneksi, pairing, JID, parsing pesan
+gateway/messages/          Model payload, builder, normalisasi, store
+gateway/services/          Auto-reply dan broadcast
+gateway/routes/            Endpoint API per fitur dan dashboard
 frontend/src/              Komponen, halaman, tema, template HTML
 frontend/e2e/              Tes browser
 examples/send_html.py      Contoh payload/pengiriman HTML
 docs/API.md                Referensi parameter API dari schema
+docs/ARCHITECTURE.md       Peta modul dan panduan perubahan backend
 docs/images/               Screenshot UI dengan data ilustrasi
 static/bulk_template.csv   Contoh CSV broadcast
 tests/                     Tes backend
@@ -963,6 +972,33 @@ storage/.gitkeep            Placeholder direktori runtime
 ```
 
 Database akun, history, sesi WhatsApp, signing key, `.env`, dependency terpasang, build frontend, dan unggahan tidak disertakan dalam Git. Template frontend lama sudah diganti React. Sisa passkey lama, helper pemrosesan video yang hanya meneruskan URL, serta import/variabel/CSS yang tidak dipakai telah dibersihkan.
+
+## Mengembangkan backend
+
+Backend dipisahkan berdasarkan tanggung jawab. `main.py` hanya mengekspor `app` dan menjalankan Uvicorn. Perintah startup, konfigurasi PM2, URL API, dan bentuk payload tetap sama. Modul tidak mengimpor `main.py`; router mengimpor layanan, model, database, dan state yang dibutuhkannya secara eksplisit.
+
+| Perubahan yang dibutuhkan | File yang diedit |
+| --- | --- |
+| Tambah endpoint kirim teks/media/kontak/lokasi/polling/reaksi | `gateway/routes/messages.py` |
+| Tombol legacy atau native-flow interactive | `gateway/routes/interactive.py`, `gateway/messages/interactive.py` |
+| Validasi request dan blok AI Rich | `gateway/messages/models.py` |
+| Struktur protobuf AI Rich/HTML | `gateway/messages/airich.py` |
+| Endpoint preview/kirim AI Rich | `gateway/routes/airich.py` |
+| Pairing dan event koneksi | `gateway/whatsapp/clients.py` |
+| Endpoint perangkat, unduh/hapus sesi | `gateway/routes/devices.py` |
+| Isolasi thread Neonize | `gateway/whatsapp/runtime.py` |
+| JID, nomor, mention | `gateway/whatsapp/addressing.py` |
+| Pesan masuk, media, quoted message | `gateway/whatsapp/serialization.py` |
+| Status biasa/status grup | `gateway/routes/status.py` |
+| Grup/channel | `gateway/routes/groups.py`, `gateway/routes/newsletters.py` |
+| Auto-reply, aturan dan cooldown | `gateway/services/auto_reply.py` |
+| Broadcast | `gateway/services/blast.py`, `gateway/routes/blast.py` |
+| Login/register, statistik/logs, aset React | `gateway/routes/dashboard.py` |
+| Auth dan database | `gateway/security.py`, `gateway/database.py` |
+
+Saat menambah fitur, deklarasikan request model pada modul model, implementasikan handler di router fitur, dan gunakan layanan bersama untuk operasi WhatsApp. Router baru didaftarkan di `create_app()` pada `gateway/application.py`. Jangan menyalin registry `clients` ke modul lain: semua modul memakai registry yang sama dari `gateway/state.py`. Saat menulis test, patch dependency pada modul yang memakainya, misalnya `gateway.routes.airich.get_client`, bukan `main.get_client`.
+
+Penjelasan lengkap dependensi, lifecycle, contoh endpoint baru, dan cara menguji tersedia di [panduan arsitektur backend](docs/ARCHITECTURE.md).
 
 ## Lisensi
 

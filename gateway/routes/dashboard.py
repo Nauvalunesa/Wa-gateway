@@ -1,16 +1,24 @@
 """Session-authenticated dashboard API and the compiled React application."""
+import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
-import asyncio
 import secrets
 import sqlite3
 from typing import Literal
 
 import aiosqlite
 from fastapi import Depends, HTTPException, Query, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+
+from gateway.config import PROJECT_ROOT, system_db_path
+from gateway.database import init_user_db
+from gateway.messages.models import AIRichBlock
+from gateway.routes.groups import api_get_groups
+from gateway.security import hash_password, verify_password
+from gateway.services.auto_reply import get_airich_auto_rules, save_airich_auto_rules
+from gateway.state import bot_numbers, bot_status, clients, pairing_sessions
 
 
 class Credentials(BaseModel):
@@ -32,11 +40,11 @@ class AIRichAutoRulesPayload(BaseModel):
     rules: list[AIRichAutoRule] = Field(default_factory=list, max_length=100)
 
 
-def setup_dashboard(app, backend):
+def register_dashboard(app):
     async def current_user(request: Request):
         username = request.session.get('user')
         if username:
-            async with aiosqlite.connect(backend.system_db_path) as db:
+            async with aiosqlite.connect(system_db_path) as db:
                 db.row_factory = aiosqlite.Row
                 async with db.execute('SELECT username, api_key FROM users WHERE username=?', (username,)) as cursor:
                     row = await cursor.fetchone()
@@ -53,17 +61,17 @@ def setup_dashboard(app, backend):
                 from urllib.parse import urlsplit
                 source = urlsplit(origin).netloc
                 if source != request.headers.get('host'):
-                    return backend.HTMLResponse('Origin tidak diizinkan', status_code=403)
+                    return HTMLResponse('Origin tidak diizinkan', status_code=403)
         return await call_next(request)
 
     @app.post('/api/web/register')
     async def register(data: Credentials, request: Request):
         if len(data.password.encode('utf-8')) > 72:
             raise HTTPException(422, 'Password maksimal 72 byte.')
-        hashed = await asyncio.to_thread(backend.hash_password, data.password)
+        hashed = await asyncio.to_thread(hash_password, data.password)
         key = secrets.token_hex(24)
         try:
-            async with aiosqlite.connect(backend.system_db_path) as db:
+            async with aiosqlite.connect(system_db_path) as db:
                 await db.execute('INSERT INTO users (username,password,api_key) VALUES (?,?,?)', (data.username, hashed, key))
                 await db.commit()
         except sqlite3.IntegrityError as exc:
@@ -77,19 +85,19 @@ def setup_dashboard(app, backend):
 
     @app.post('/api/web/login')
     async def login(data: Credentials, request: Request):
-        async with aiosqlite.connect(backend.system_db_path) as db:
+        async with aiosqlite.connect(system_db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute('SELECT username,password,api_key FROM users WHERE username=?', (data.username,)) as cursor:
                 row = await cursor.fetchone()
         valid = False
         if row:
             try:
-                valid = await asyncio.to_thread(backend.verify_password, data.password, row['password'])
+                valid = await asyncio.to_thread(verify_password, data.password, row['password'])
             except (ValueError, TypeError):
                 pass
         if not valid:
             raise HTTPException(401, 'Username atau password salah.')
-        await backend.init_user_db(row['username'])
+        await init_user_db(row['username'])
         request.session.clear()
         request.session['user'] = row['username']
         return {'username': row['username'], 'api_key': row['api_key']}
@@ -111,7 +119,7 @@ def setup_dashboard(app, backend):
     @app.post('/api/web/api-key')
     async def regenerate_key(user=Depends(current_user)):
         key = secrets.token_hex(24)
-        async with aiosqlite.connect(backend.system_db_path) as db:
+        async with aiosqlite.connect(system_db_path) as db:
             await db.execute('UPDATE users SET api_key=? WHERE username=?', (key, user['username']))
             await db.commit()
         return {'api_key': key}
@@ -119,10 +127,10 @@ def setup_dashboard(app, backend):
     def devices_for(username):
         directory = Path('storage') / username / 'sessions'
         phones = {p.stem for p in directory.glob('*.sqlite3') if p.stem != 'session'}
-        phones.update(sid.split(':', 1)[1] for sid in backend.clients if sid.startswith(username + ':'))
-        return [{'phone': ph, 'number': backend.bot_numbers.get(f'{username}:{ph}', ph),
-                 'online': bool(backend.bot_status.get(f'{username}:{ph}')),
-                 'pairing': f'{username}:{ph}' in backend.pairing_sessions}
+        phones.update(sid.split(':', 1)[1] for sid in clients if sid.startswith(username + ':'))
+        return [{'phone': ph, 'number': bot_numbers.get(f'{username}:{ph}', ph),
+                 'online': bool(bot_status.get(f'{username}:{ph}')),
+                 'pairing': f'{username}:{ph}' in pairing_sessions}
                 for ph in sorted(phones)]
 
     @app.get('/api/web/devices')
@@ -132,11 +140,11 @@ def setup_dashboard(app, backend):
     @app.get('/api/web/groups')
     async def dashboard_groups(phone: str | None = Query(None), user=Depends(current_user)):
         """Return the signed-in user's joined groups to the web composer."""
-        return await backend.api_get_groups(phone=phone, username=user['username'])
+        return await api_get_groups(phone=phone, username=user['username'])
 
     @app.get('/api/web/airich/auto-replies')
     async def get_airich_auto_replies(user=Depends(current_user)):
-        return {'rules': backend.get_airich_auto_rules(user['username'])}
+        return {'rules': get_airich_auto_rules(user['username'])}
 
     @app.put('/api/web/airich/auto-replies')
     async def put_airich_auto_replies(data: AIRichAutoRulesPayload, user=Depends(current_user)):
@@ -144,16 +152,16 @@ def setup_dashboard(app, backend):
         for rule in rules:
             try:
                 for block in rule['blocks']:
-                    backend.AIRichBlock.model_validate(block)
+                    AIRichBlock.model_validate(block)
             except Exception as exc:
                 raise HTTPException(422, f"Aturan '{rule['keyword']}': {exc}") from exc
-        backend.save_airich_auto_rules(user['username'], rules)
+        save_airich_auto_rules(user['username'], rules)
         return {'success': True, 'rules': rules}
 
     @app.get('/api/web/overview')
     async def overview(user=Depends(current_user)):
         devices = devices_for(user['username'])
-        await backend.init_user_db(user['username'])
+        await init_user_db(user['username'])
         since = (datetime.now() - timedelta(days=6)).strftime('%Y-%m-%d')
         async with aiosqlite.connect(f"storage/{user['username']}/history/logs.db") as db:
             db.row_factory = aiosqlite.Row
@@ -169,7 +177,7 @@ def setup_dashboard(app, backend):
 
     @app.get('/api/web/logs')
     async def logs(search: str = '', page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), user=Depends(current_user)):
-        await backend.init_user_db(user['username'])
+        await init_user_db(user['username'])
         where = 'WHERE receiver LIKE ? OR message LIKE ? OR sender LIKE ?' if search else ''
         args = [f'%{search}%'] * 3 if search else []
         async with aiosqlite.connect(f"storage/{user['username']}/history/logs.db") as db:
@@ -181,7 +189,7 @@ def setup_dashboard(app, backend):
         return {'rows': rows, 'total': total, 'page': page, 'limit': limit}
 
     # Serve only the known SPA routes; missing API routes must remain real 404s.
-    dist = Path(__file__).resolve().parent / 'frontend' / 'dist'
+    dist = PROJECT_ROOT / 'frontend' / 'dist'
     app.mount('/assets', StaticFiles(directory=str(dist / 'assets'), check_dir=False), name='frontend-assets')
 
     @app.get('/favicon.svg', include_in_schema=False)

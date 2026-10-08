@@ -1,0 +1,1 @@
+"""Utusan gateway services package."""

@@ -1,16 +1,18 @@
 import json
 import logging
 import os
+from pathlib import Path
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
+import main
 from neonize.aioze.client import NewAClient
 from neonize.proto.Neonize_pb2 import GroupInfo, JID, NewsletterMetadata
+from neonize.proto.waE2E.WAWebProtobufsE2E_pb2 import Message as WAMessage
 
-import main
+import gateway.state as gateway_state
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
@@ -31,10 +33,10 @@ class MessageAPITests(unittest.TestCase):
         self.client = AsyncMock(spec=NewAClient)
         self.client.is_connected = True
         self.client.me = None
-        self.client.build_image_message.return_value = main.WAMessage(imageMessage={"URL": "https://mmg.whatsapp.net/image", "mimetype": "image/jpeg"})
-        self.client.build_video_message.return_value = main.WAMessage(videoMessage={"URL": "https://mmg.whatsapp.net/video", "mimetype": "video/mp4"})
-        self.client.build_poll_vote_creation.return_value = main.WAMessage(pollCreationMessage={"name": "Jadwal", "options": [{"optionName": "Pagi"}, {"optionName": "Sore"}], "selectableOptionsCount": 1})
-        self.client.build_reaction.return_value = main.WAMessage(reactionMessage={"text": "👍"})
+        self.client.build_image_message.return_value = WAMessage(imageMessage={"URL": "https://mmg.whatsapp.net/image", "mimetype": "image/jpeg"})
+        self.client.build_video_message.return_value = WAMessage(videoMessage={"URL": "https://mmg.whatsapp.net/video", "mimetype": "video/mp4"})
+        self.client.build_poll_vote_creation.return_value = WAMessage(pollCreationMessage={"name": "Jadwal", "options": [{"optionName": "Pagi"}, {"optionName": "Sore"}], "selectableOptionsCount": 1})
+        self.client.build_reaction.return_value = WAMessage(reactionMessage={"text": "👍"})
         async def send_contact(*args):
             return await NewAClient.send_contact(self.client, *args)
         self.client.send_contact.side_effect = send_contact
@@ -47,13 +49,13 @@ class MessageAPITests(unittest.TestCase):
         self.client.get_newsletter_info.return_value = channel
         self.client.create_newsletter.return_value = channel
         self.client.get_newsletter_messages.return_value = []
-        main.clients[self.sid] = self.client
-        main.bot_status[self.sid] = True
+        gateway_state.clients[self.sid] = self.client
+        gateway_state.bot_status[self.sid] = True
 
     def tearDown(self):
-        main.clients.pop(self.sid, None)
-        main.bot_status.pop(self.sid, None)
-        main.bot_numbers.pop(self.sid, None)
+        gateway_state.clients.pop(self.sid, None)
+        gateway_state.bot_status.pop(self.sid, None)
+        gateway_state.bot_numbers.pop(self.sid, None)
         self.http.__exit__(None, None, None)
         os.chdir(self.original_cwd)
         self.directory.cleanup()
@@ -96,7 +98,7 @@ class MessageAPITests(unittest.TestCase):
                 params = {"phone": self.phone, "type": kind, "text": "Status", "url": "https://example.com/media"}
                 self.send("GET", "/api/send-status", params=params)
                 self.send("GET", "/api/send-group-status", params={**params, "to": "120363000000001@g.us"})
-                wire = main.WAMessage.FromString(self.client.send_message.await_args.args[1].SerializeToString())
+                wire = WAMessage.FromString(self.client.send_message.await_args.args[1].SerializeToString())
                 inner = wire.groupStatusMessageV2.message
                 self.assertTrue(inner.conversation if kind == "text" else inner.HasField(kind + "Message"))
         self.assertEqual(self.http.get("/api/send-group-status", params={"to": "6281776348790", "type": "text"}).status_code, 422)
@@ -137,7 +139,7 @@ class MessageAPITests(unittest.TestCase):
                 response = self.http.request(method, path, **kwargs)
                 self.assertEqual(response.status_code, 422, response.text)
         self.client.send_message.assert_not_awaited()
-        main.bot_status[self.sid] = False
+        gateway_state.bot_status[self.sid] = False
         self.assertEqual(self.http.get("/api/send-message", params={"to": "x", "text": "Halo", "phone": self.phone}).status_code, 503)
 
     def test_cookie_origin_rejection_and_external_key_compatibility(self):

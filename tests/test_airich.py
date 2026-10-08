@@ -3,10 +3,12 @@ import unittest
 from unittest.mock import AsyncMock, patch
 
 from fastapi import HTTPException
+from neonize.proto.Neonize_pb2 import JID
 from pydantic import ValidationError
 
-import main
-from neonize.proto.Neonize_pb2 import JID
+import gateway.messages.airich as rich_builder
+import gateway.messages.models as models
+import gateway.routes.airich as airich_api
 
 
 class AIRichTests(unittest.IsolatedAsyncioTestCase):
@@ -24,10 +26,10 @@ class AIRichTests(unittest.IsolatedAsyncioTestCase):
             {'type': 'tip', 'text': 'A tip'},
             {'type': 'suggest', 'suggestions': ['More', 'Next']},
         ]
-        data = main.AIRichPayload(to='244952155419', title='Test', footer='Footer', blocks=blocks)
-        result = await main.api_airich_preview(data, username='test')
+        data = models.AIRichPayload(to='244952155419', title='Test', footer='Footer', blocks=blocks)
+        result = await airich_api.api_airich_preview(data, username='test')
         self.assertFalse(result['sent'])
-        msg = await main.build_airich_message(data, mentioned_jids=['244952155419@s.whatsapp.net'])
+        msg = await rich_builder.build_airich_message(data, mentioned_jids=['244952155419@s.whatsapp.net'])
         rich = msg.botForwardedMessage.message.richResponseMessage
         self.assertEqual(list(rich.contextInfo.mentionedJID), ['244952155419@s.whatsapp.net'])
         wire = json.loads(rich.unifiedResponse.data)
@@ -46,34 +48,34 @@ class AIRichTests(unittest.IsolatedAsyncioTestCase):
             {'type': 'video', 'url': 'x', 'duration': -1},
         ]:
             with self.subTest(block=block), self.assertRaises(ValidationError):
-                main.AIRichPayload(to='x', blocks=[block])
+                models.AIRichPayload(to='x', blocks=[block])
         with self.assertRaises(ValidationError):
-            main.AIRichPayload(to='x', submessages=[])
+            models.AIRichPayload(to='x', submessages=[])
 
     async def test_get_and_post_send_same_message(self):
         client = AsyncMock()
         jid = JID(User='244952155419', Server='s.whatsapp.net')
         values = {'blocks': [{'type': 'TEXT', 'text': 'Hello'}]}
-        with patch.object(main, 'get_client', return_value=(client, 'device')), \
-             patch.object(main, 'get_actual_jid', AsyncMock(return_value=jid)), \
-             patch.object(main, 'log_message', AsyncMock()):
-            response = await main.api_send_airich_get(None, '244952155419', json.dumps(values), username='test')
+        with patch.object(airich_api, 'get_client', return_value=(client, 'device')), \
+             patch.object(airich_api, 'get_actual_jid', AsyncMock(return_value=jid)), \
+             patch.object(airich_api, 'log_message', AsyncMock()):
+            response = await airich_api.api_send_airich_get(None, '244952155419', json.dumps(values), username='test')
         self.assertTrue(response['success'])
         sent = client.send_message.await_args.args[1]
         self.assertEqual(sent.botForwardedMessage.message.richResponseMessage.submessages[0].messageText, 'Hello')
         for bad in ['not json', '[]', '{"blocks":[{"type":"html"}]}']:
             with self.assertRaises(HTTPException) as context:
-                await main.api_send_airich_get(None, 'x', bad, username='test')
+                await airich_api.api_send_airich_get(None, 'x', bad, username='test')
             self.assertEqual(context.exception.status_code, 422)
 
     async def test_html_preserves_script_and_order_without_double_base64(self):
         html = '<button>音</button><script>window.test=1</script>'
-        data = main.AIRichPayload(to='x', blocks=[
+        data = models.AIRichPayload(to='x', blocks=[
             {'type': 'text', 'text': 'Before'},
             {'type': 'html', 'html': html, 'trusted_sources': ['example.com']},
             {'type': 'text', 'text': 'After'},
         ])
-        msg = await main.build_airich_message(data, mentioned_jids=['1@s.whatsapp.net'])
+        msg = await rich_builder.build_airich_message(data, mentioned_jids=['1@s.whatsapp.net'])
         rich = msg.botForwardedMessage.message.richResponseMessage
         wire = json.loads(rich.unifiedResponse.data)
         primitive = wire['sections'][1]['view_model']['primitive']
@@ -86,6 +88,6 @@ class AIRichTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(msg.SerializeToString())
 
     async def test_raw_payload(self):
-        data = main.AIRichPayload(to='x', submessages=[{'messageType': 1, 'messageText': 'Hello'}], unified={'sections': []})
-        msg = await main.build_airich_message(data)
+        data = models.AIRichPayload(to='x', submessages=[{'messageType': 1, 'messageText': 'Hello'}], unified={'sections': []})
+        msg = await rich_builder.build_airich_message(data)
         self.assertEqual(msg.botForwardedMessage.message.richResponseMessage.submessages[0].messageText, 'Hello')

@@ -1,12 +1,17 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import os
 from threading import Event
 from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock, patch
 
-import main
-from neonize_runtime import ConnectionGoCode
+from fastapi import HTTPException
+from neonize.aioze.events import ConnectFailureEv, DisconnectedEv
+
+import gateway.state as gateway_state
+import gateway.whatsapp.clients as wa_clients
+from gateway.whatsapp.runtime import ConnectionGoCode
 
 
 class PairingRuntimeTests(unittest.IsolatedAsyncioTestCase):
@@ -87,34 +92,34 @@ class PairingRuntimeTests(unittest.IsolatedAsyncioTestCase):
             client = AsyncMock()
             client.connect_task = None
             attempts.append(client)
-            main.clients[sid] = client
-            main.bot_status[sid] = False
-        tasks_before = set(main.client_cleanup_tasks)
+            gateway_state.clients[sid] = client
+            gateway_state.bot_status[sid] = False
+        tasks_before = set(gateway_state.client_cleanup_tasks)
         try:
-            with patch.object(main, 'init_user_db', AsyncMock()), \
-                 patch.object(main, 'start_neonize', start), \
-                 patch.object(main.os.path, 'exists', return_value=False), \
-                 patch.object(main.os, 'makedirs'), \
-                 patch.object(main, 'get_pairing_code_safe', AsyncMock(side_effect=[RuntimeError('PairPhone timeout'), 'ABCD-EFGH'])):
-                with self.assertRaises(main.HTTPException):
-                    await main.request_pairing_code('pairing-test', '628123456789')
-                self.assertNotIn(sid, main.clients)
-                self.assertNotIn(sid, main.pairing_sessions)
+            with patch.object(wa_clients, 'init_user_db', AsyncMock()), \
+                 patch.object(wa_clients, 'start_neonize', start), \
+                 patch.object(os.path, 'exists', return_value=False), \
+                 patch.object(os, 'makedirs'), \
+                 patch.object(wa_clients, 'get_pairing_code_safe', AsyncMock(side_effect=[RuntimeError('PairPhone timeout'), 'ABCD-EFGH'])):
+                with self.assertRaises(HTTPException):
+                    await wa_clients.request_pairing_code('pairing-test', '628123456789')
+                self.assertNotIn(sid, gateway_state.clients)
+                self.assertNotIn(sid, gateway_state.pairing_sessions)
                 attempts[0].stop.assert_awaited_once()
-                result = await main.request_pairing_code('pairing-test', '628123456789')
+                result = await wa_clients.request_pairing_code('pairing-test', '628123456789')
                 self.assertEqual(result['code'], 'ABCD-EFGH')
-                self.assertIs(main.clients[sid], attempts[1])
-                with self.assertRaises(main.HTTPException) as conflict:
-                    await main.request_pairing_code('pairing-test', '628123456789')
+                self.assertIs(gateway_state.clients[sid], attempts[1])
+                with self.assertRaises(HTTPException) as conflict:
+                    await wa_clients.request_pairing_code('pairing-test', '628123456789')
                 self.assertEqual(conflict.exception.status_code, 409)
         finally:
-            cleanup = list(main.client_cleanup_tasks - tasks_before)
+            cleanup = list(gateway_state.client_cleanup_tasks - tasks_before)
             for task in cleanup:
                 task.cancel()
             await asyncio.gather(*cleanup, return_exceptions=True)
-            main.clients.pop(sid, None)
-            main.bot_status.pop(sid, None)
-            main.pairing_sessions.discard(sid)
+            gateway_state.clients.pop(sid, None)
+            gateway_state.bot_status.pop(sid, None)
+            gateway_state.pairing_sessions.discard(sid)
 
     async def test_old_client_callbacks_cannot_mark_replacement_offline(self):
         class FakeClient:
@@ -129,16 +134,16 @@ class PairingRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 return handler
         sid = 'old-client-test:628123456789'
         try:
-            with patch.object(main, 'NewAClient', FakeClient):
-                main.start_neonize('old-client-test', '628123456789', auto_connect=False)
-            old = main.clients[sid]
+            with patch.object(wa_clients, 'NewAClient', FakeClient):
+                wa_clients.start_neonize('old-client-test', '628123456789', auto_connect=False)
+            old = gateway_state.clients[sid]
             replacement = object()
-            main.clients[sid] = replacement
-            main.bot_status[sid] = True
-            await old.handlers[main.DisconnectedEv](old, None)
-            await old.handlers[main.ConnectFailureEv](old, 'old timeout')
-            self.assertIs(main.clients[sid], replacement)
-            self.assertTrue(main.bot_status[sid])
+            gateway_state.clients[sid] = replacement
+            gateway_state.bot_status[sid] = True
+            await old.handlers[DisconnectedEv](old, None)
+            await old.handlers[ConnectFailureEv](old, 'old timeout')
+            self.assertIs(gateway_state.clients[sid], replacement)
+            self.assertTrue(gateway_state.bot_status[sid])
         finally:
-            main.clients.pop(sid, None)
-            main.bot_status.pop(sid, None)
+            gateway_state.clients.pop(sid, None)
+            gateway_state.bot_status.pop(sid, None)

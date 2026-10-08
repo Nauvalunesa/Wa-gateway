@@ -1,13 +1,14 @@
 from dataclasses import dataclass, field
 from functools import cached_property
 import json
-from neonize.utils import get_message_type
+from typing import Any, List, Optional
+
 from neonize.aioze.client import NewAClient
+from neonize.proto.Neonize_pb2 import JID
 from neonize.proto.waE2E.WAWebProtobufsE2E_pb2 import Message as RawMessage
-from typing import Optional, List, Any
-from neonize.proto.Neonize_pb2 import JID 
-from neonize.utils import build_jid 
-from msg_store import store as ms
+from neonize.utils import build_jid, get_message_type
+
+from gateway.messages.store import store as ms
 
 def str_to_jid(jid : str) -> JID:
     return build_jid(

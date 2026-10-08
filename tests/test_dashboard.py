@@ -1,10 +1,13 @@
 import os
+from pathlib import Path
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 import main
+
+import gateway.database as database
 
 
 class DashboardTests(unittest.TestCase):
@@ -39,7 +42,7 @@ class DashboardTests(unittest.TestCase):
     def test_stats_logs_and_account_isolation(self):
         self.register('first')
         import asyncio
-        asyncio.run(main.log_message('first','device','628123456789','Example','OUTGOING'))
+        asyncio.run(database.log_message('first','device','628123456789','Example','OUTGOING'))
         overview=self.client.get('/api/web/overview').json()
         self.assertEqual(overview['messages'],1)
         self.assertEqual(len(overview['daily']),7)
