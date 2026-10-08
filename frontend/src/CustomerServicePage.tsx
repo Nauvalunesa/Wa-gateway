@@ -10,6 +10,7 @@ type Config = {
   enabled: boolean; business_name: string; admin_phone: string; devices: string[]
   reply_mode: 'buttons' | 'list' | 'legacy' | 'text'; start_on_first_message: boolean
   keywords: string[]; cooldown_seconds: number; session_ttl_minutes: number; handoff_minutes: number
+  inactivity_minutes: number; closing_message: string
   root_node: string; nodes: Node[]
 }
 type Reply = { title: string; body: string; footer: string; node: string; handoff: boolean; options: Option[]; mode: string }
@@ -109,6 +110,8 @@ export function CustomerServicePage() {
             <Field label="Menu awal"><select value={draft.root_node} onChange={e => set({ root_node: e.target.value })}>{draft.nodes.map(n => <option key={n.id} value={n.id}>{n.title}</option>)}</select></Field>
             <Field label="Jeda antarbalasan (detik)"><input type="number" min={0} max={60} value={draft.cooldown_seconds} onChange={e => set({ cooldown_seconds: Number(e.target.value) })} /></Field>
             <Field label="Percakapan kedaluwarsa (menit)"><input type="number" min={1} max={1440} value={draft.session_ttl_minutes} onChange={e => set({ session_ttl_minutes: Number(e.target.value) })} /></Field>
+            <Field label="Akhiri jika tidak ada respons (menit)"><input type="number" min={1} max={1440} value={draft.inactivity_minutes} onChange={e => set({ inactivity_minutes: Number(e.target.value) })} /><small>Default 3 menit sejak respons terakhir. Timer tidak menutup percakapan yang dijeda ke admin.</small></Field>
+            <Field label="Pesan penutup otomatis"><textarea rows={3} maxLength={2000} value={draft.closing_message} onChange={e => set({ closing_message: e.target.value })} /><small>Dikirim sekali saat waktu tunggu habis. Ketik menu untuk memulai kembali.</small></Field>
             <Field label="Jeda saat ke admin (menit)"><input type="number" min={1} max={1440} value={draft.handoff_minutes} onChange={e => set({ handoff_minutes: Number(e.target.value) })} /></Field>
           </div>
           <label className="check-label"><input type="checkbox" checked={draft.start_on_first_message} onChange={e => set({ start_on_first_message: e.target.checked })} />Buka menu pada pesan pertama, tanpa harus mengetik kata pemicu</label>

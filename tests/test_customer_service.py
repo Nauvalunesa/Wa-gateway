@@ -143,6 +143,59 @@ class CustomerServiceTests(unittest.IsolatedAsyncioTestCase):
         release.set(); await first
         self.assertEqual(self.client.send_message.await_count, 1)
 
+    async def test_inactivity_closes_once_at_three_minutes_without_new_message(self):
+        with patch.object(cs.time, "monotonic", return_value=100):
+            await self.send("menu", "a")
+        resolver = lambda *args: (self.client, args[1])
+        with patch.object(cs.time, "monotonic", return_value=279):
+            await cs.close_idle_conversations(resolver)
+        self.assertEqual(self.client.send_message.await_count, 1)
+        with patch.object(cs.time, "monotonic", return_value=280):
+            await cs.close_idle_conversations(resolver)
+            await cs.close_idle_conversations(resolver)
+        self.assertEqual(self.client.send_message.await_count, 2)
+        self.assertEqual(self.client.send_message.await_args.args[1].conversation, self.config.closing_message)
+        self.assertFalse(cs.conversations)
+        await self.send("cs:v1:menu:admin", "old")
+        self.assertEqual(self.sent_node(), "Selamat datang")
+
+    async def test_response_refreshes_timer_including_media_but_duplicates_do_not(self):
+        with patch.object(cs.time, "monotonic", return_value=100):
+            await self.send("menu", "a")
+        key = next(iter(cs.conversations))
+        with patch.object(cs.time, "monotonic", return_value=200):
+            await self.send("menu", "a")
+            self.assertEqual(cs.conversations[key]["idle_at"], 280)
+            await self.send("", "media")
+            self.assertEqual(cs.conversations[key]["idle_at"], 380)
+        with patch.object(cs.time, "monotonic", return_value=250):
+            await self.send("", "media")
+            self.assertEqual(cs.conversations[key]["idle_at"], 380)
+        with patch.object(cs.time, "monotonic", return_value=300):
+            await cs.close_idle_conversations(lambda *args: (self.client, args[1]))
+        self.assertEqual(self.client.send_message.await_count, 1)
+
+    async def test_idle_closure_respects_handoff_disabled_and_offline_and_failure(self):
+        await self.send("menu", "a")
+        await self.send("3", "b")
+        key = next(iter(cs.conversations))
+        self.assertEqual(cs.conversations[key]["idle_at"], 0)
+        resolver = lambda *args: (self.client, args[1])
+        await cs.close_idle_conversations(resolver)
+        self.assertEqual(self.client.send_message.await_count, 2)
+        for mode in ['disabled', 'offline', 'failure']:
+            self.config.enabled = True
+            await self.send("menu", mode)
+            cs.conversations[key]["idle_at"] = 1
+            before = self.client.send_message.await_count
+            if mode == 'disabled': self.config.enabled = False
+            if mode == 'failure': self.client.send_message.side_effect = RuntimeError('offline')
+            await cs.close_idle_conversations((lambda *args: (None, args[1])) if mode == 'offline' else resolver)
+            await cs.close_idle_conversations(resolver)
+            self.assertNotIn(key, cs.conversations)
+            self.assertEqual(self.client.send_message.await_count, before + (1 if mode == 'failure' else 0))
+            self.client.send_message.side_effect = None
+
     async def test_keyword_only_mode_and_disabled_bot_leave_other_rules_available(self):
         self.config.start_on_first_message = False
         self.assertFalse(await self.send("pesan lain", "a"))

@@ -43,6 +43,8 @@ class CSConfig(BaseModel):
     keywords: list[str] = Field(default_factory=lambda: ["menu", "halo", "mulai"], min_length=1, max_length=20)
     cooldown_seconds: int = Field(default=2, ge=0, le=60)
     session_ttl_minutes: int = Field(default=30, ge=1, le=1440)
+    inactivity_minutes: int = Field(default=3, ge=1, le=1440)
+    closing_message: str = Field(default="Percakapan diakhiri karena tidak ada respons. Terima kasih telah menghubungi kami. Ketik menu untuk memulai kembali.", min_length=1, max_length=2000)
     handoff_minutes: int = Field(default=60, ge=1, le=1440)
     root_node: str = "menu"
     nodes: list[CSNode] = Field(min_length=1, max_length=30)
@@ -62,7 +64,7 @@ class CSConfig(BaseModel):
             raise ValueError("Nomor perangkat harus menggunakan kode negara")
         return list(dict.fromkeys(values))
 
-    @field_validator("business_name")
+    @field_validator("business_name", "closing_message")
     @classmethod
     def validate_name(cls, value):
         if not value.strip():

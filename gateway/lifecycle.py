@@ -1,13 +1,15 @@
 """Application startup, session restoration, and shutdown."""
 import asyncio
 from contextlib import asynccontextmanager
+from contextlib import suppress
 import os
 
 from fastapi import FastAPI
 
 from gateway.database import init_system_db, init_user_db
 from gateway.state import clients
-from gateway.whatsapp.clients import start_neonize
+from gateway.whatsapp.clients import start_neonize, get_client
+from gateway.services.customer_service import inactivity_worker
 
 
 @asynccontextmanager
@@ -28,7 +30,13 @@ async def lifespan(app: FastAPI):
 
                         start_neonize(item, phone)
 
-    yield
+    idle_task = asyncio.create_task(inactivity_worker(get_client))
+    try:
+        yield
+    finally:
+        idle_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await idle_task
 
     # Shutdown
     print("🔌 Shutting down WhatsApp Gateway...")

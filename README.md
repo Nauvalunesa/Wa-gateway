@@ -601,13 +601,23 @@ Pengaturan disimpan per akun di `storage/<username>/config/customer_service.json
 
 Bot membaca respons tombol native, tombol legacy, template button, dan list. Pelanggan juga dapat mengetik nomor pilihan atau labelnya. `menu`, `0`, dan `kembali` selalu mengembalikan ke menu awal. Tombol dari halaman/config lama tidak menjalankan alur yang salah: bot membuka menu awal kembali.
 
-Bot CS menangani chat pribadi termasuk JID LID. Jika aktif untuk perangkat tersebut, Bot CS diproses sebelum Auto Reply AI Rich. Grup, channel, status, edit pesan, dan pesan dari perangkat sendiri tidak memicu bot. Opsi **Buka menu pada pesan pertama** dapat dimatikan supaya percakapan baru hanya dimulai melalui kata pemicu.
+Bot CS menangani **chat pribadi (PC/private chat)** termasuk JID LID; ini bukan pembatasan ke komputer. Pelanggan bisa berinteraksi dari WhatsApp mobile maupun desktop. Bot CS belum merespons grup. Jika aktif untuk perangkat tersebut, Bot CS diproses sebelum Auto Reply AI Rich. Grup, channel, status, edit pesan, dan pesan dari perangkat sendiri tidak memicu bot. Opsi **Buka menu pada pesan pertama** dapat dimatikan supaya percakapan baru hanya dimulai melalui kata pemicu.
 
 ### Hubungi admin dan percakapan aktif
 
 Halaman yang ditandai **mengarahkan ke admin** menambahkan tautan `wa.me` nomor admin pada balasan. Bot lalu berhenti membalas chat itu selama durasi jeda yang Anda atur. Pelanggan menghubungi admin melalui tautan tersebut; pesan tidak otomatis diteruskan ke nomor admin. Ketik `menu` untuk kembali ke bot, atau gunakan **Reset chat** di daftar percakapan aktif.
 
 Saat dijeda, aturan Auto Reply juga tidak membalas chat yang sama. Pengaturan cooldown mengurangi balasan beruntun; event dengan ID sama tidak dibalas ulang. State dipisahkan per akun, perangkat, dan chat. State percakapan berada di memori dan kembali ke awal setelah restart; konfigurasi alur tetap tersimpan. Menyimpan perubahan pengaturan juga mereset state akun agar memakai alur terbaru.
+
+### Penutupan otomatis setelah 3 menit
+
+Pada **Pengaturan layanan**, `Akhiri jika tidak ada respons (menit)` bernilai **3** secara default. Bot mengirim **Pesan penutup otomatis** sekali ketika pelanggan tidak merespons sampai batas waktu, lalu menghapus sesi menu. Pesan penutup dapat diedit, dan `{business}` diganti dengan nama layanan.
+
+Timer berjalan di background; pelanggan tidak perlu mengirim pesan baru untuk memicu penutupan. Respons baru, termasuk media pada sesi aktif, memperbarui waktu tunggu. Event pesan duplikat tidak memperpanjang timer. Sesudah sesi ditutup, pesan berikutnya memulai ulang sesuai pengaturan kata pemicu/pesan pertama; tombol lama diarahkan kembali ke menu awal.
+
+Percakapan yang dialihkan ke admin memakai **Jeda saat ke admin**, sehingga timer 3 menit tidak memotong percakapan admin. Jika perangkat offline atau pengiriman penutup gagal, sesi tetap ditutup, kegagalan dicatat, dan pesan penutup tidak diulang berkali-kali. Sesi percakapan berada di memori: restart menghapus sesi aktif dan timer, sedangkan konfigurasi tetap tersimpan. Pemeriksaan background berjalan setiap detik; pengiriman bergantung pada koneksi WhatsApp.
+
+JSON konfigurasi mendukung `inactivity_minutes` (1–1440, default 3) dan `closing_message` (1–2000 karakter). Konfigurasi lama otomatis memakai nilai default ini tanpa perlu membuat ulang alur. Simpan editor agar perubahan teks/waktu berlaku.
 
 ### Endpoint dashboard Bot CS
 
