@@ -40,6 +40,7 @@ Screenshot memakai data ilustrasi untuk memperlihatkan UI, bukan statistik akun 
 - [Jenis pesan](#jenis-pesan)
 - [AI Rich](#ai-rich)
 - [Auto Reply](#auto-reply)
+- [Bot CS bertingkat](#bot-cs-bertingkat)
 - [REST API](#rest-api)
 - [Contoh request per fitur](#contoh-request-per-fitur)
 - [Panduan operasional](#panduan-operasional)
@@ -69,6 +70,7 @@ Screenshot memakai data ilustrasi untuk memperlihatkan UI, bukan statistik akun 
 | `/tools` | Composer pesan, pilihan tujuan, preview, panduan request dan salin kode |
 | `/airich` | 12 jenis blok, editor, urutan blok, paket seluruh blok, validasi, preview |
 | `/auto-reply` | Aturan kata pemicu, cakupan chat/grup, cooldown, aktif/nonaktif |
+| `/customer-service` | Bot CS, menu bertingkat, button reply/list, FAQ, kontak admin, simulator |
 | `/blast` | Broadcast CSV, personalisasi, beberapa perangkat, delay pengiriman |
 | `/channels` | Daftar channel, informasi, ikuti/berhenti mengikuti, kirim pesan |
 | `/logs` | Pencarian, pagination, detail pesan, salin isi, ekspor CSV |
@@ -544,6 +546,67 @@ Auto Reply berada di halaman tersendiri. Buat aturan berisi kata pemicu, pencoco
 
 API dashboard untuk aturan adalah `GET`/`PUT /api/web/airich/auto-replies` dan memakai cookie login.
 
+## Bot CS bertingkat
+
+Buka **Bot CS** pada sidebar atau `/customer-service`. Fitur ini mengelola percakapan layanan pelanggan dengan tombol yang mempunyai tujuan halaman. Saat pelanggan menekan tombol, bot mengirim isi halaman tujuan beserta tombol lanjutannya.
+
+Alur bawaan:
+
+```text
+Menu utama
+├── Produk & layanan → informasi produk → Menu utama
+├── Bantuan / FAQ
+│   ├── Jam operasional → jawaban → Menu utama
+│   ├── Alamat & kontak → jawaban → Menu utama
+│   └── Menu utama
+└── Hubungi admin → tautan kontak admin + jeda bot → Menu utama
+```
+
+### Mengaktifkan dan mengedit
+
+1. Hubungkan perangkat WhatsApp pada halaman Perangkat.
+2. Buka Bot CS, isi nama layanan dan nomor admin dengan kode negara.
+3. Edit pesan pada setiap halaman. `{name}` diganti nama pelanggan; `{business}` diganti nama layanan.
+4. Tambahkan halaman dan tombol; pilihan **Tujuan** menentukan halaman balasan berikutnya. Maksimal 30 halaman dan 10 pilihan per halaman.
+5. Pilih perangkat yang menjalankan bot. Tanpa pilihan perangkat, bot berlaku pada seluruh perangkat akun.
+6. Coba alur lewat simulator: klik tombol, ketik angka, atau ketik label pilihan. Preview membangun protobuf tanpa mengirim WhatsApp.
+7. Centang **Aktifkan Bot CS** lalu klik **Simpan pengaturan**. Kirim `menu` atau `halo` ke nomor perangkat dari nomor WhatsApp lain untuk menguji.
+
+Pengaturan disimpan per akun di `storage/<username>/config/customer_service.json`. Jawaban memakai konten yang Anda tulis dalam editor. Template bawaan menyediakan struktur layanan untuk diisi sesuai bisnis Anda.
+
+### Jenis balasan dan navigasi
+
+| Mode | Perilaku |
+| --- | --- |
+| Tombol balasan cepat | Native-flow `quick_reply`; lebih dari 3 pilihan otomatis menggunakan list |
+| List | Native-flow `single_select`, maksimal 10 pilihan per halaman |
+| Tombol legacy | `ButtonV2Message`, maksimal 3 pilihan per halaman |
+| Teks bernomor | Balasan teks dengan daftar pilihan angka |
+
+Bot membaca respons tombol native, tombol legacy, template button, dan list. Pelanggan juga dapat mengetik nomor pilihan atau labelnya. `menu`, `0`, dan `kembali` selalu mengembalikan ke menu awal. Tombol dari halaman/config lama tidak menjalankan alur yang salah: bot membuka menu awal kembali.
+
+Bot CS menangani chat pribadi termasuk JID LID. Jika aktif untuk perangkat tersebut, Bot CS diproses sebelum Auto Reply AI Rich. Grup, channel, status, edit pesan, dan pesan dari perangkat sendiri tidak memicu bot. Opsi **Buka menu pada pesan pertama** dapat dimatikan supaya percakapan baru hanya dimulai melalui kata pemicu.
+
+### Hubungi admin dan percakapan aktif
+
+Halaman yang ditandai **mengarahkan ke admin** menambahkan tautan `wa.me` nomor admin pada balasan. Bot lalu berhenti membalas chat itu selama durasi jeda yang Anda atur. Pelanggan menghubungi admin melalui tautan tersebut; pesan tidak otomatis diteruskan ke nomor admin. Ketik `menu` untuk kembali ke bot, atau gunakan **Reset chat** di daftar percakapan aktif.
+
+Saat dijeda, aturan Auto Reply juga tidak membalas chat yang sama. Pengaturan cooldown mengurangi balasan beruntun; event dengan ID sama tidak dibalas ulang. State dipisahkan per akun, perangkat, dan chat. State percakapan berada di memori dan kembali ke awal setelah restart; konfigurasi alur tetap tersimpan. Menyimpan perubahan pengaturan juga mereset state akun agar memakai alur terbaru.
+
+### Endpoint dashboard Bot CS
+
+Endpoint ini membutuhkan cookie login dashboard, dengan pemeriksaan origin pada request yang mengubah data.
+
+| Method | Path | Fungsi |
+| --- | --- | --- |
+| GET | `/api/web/customer-service` | Pengaturan alur saat ini dan revision |
+| PUT | `/api/web/customer-service` | Simpan keseluruhan konfigurasi |
+| POST | `/api/web/customer-service/preview` | Simulasi navigasi dan protobuf, `sent: false` |
+| GET | `/api/web/customer-service/conversations` | Percakapan aktif dan sisa jeda admin |
+| POST | `/api/web/customer-service/reset` | Reset satu chat berdasarkan `phone` dan `chat` |
+
+Panel request pada halaman Bot CS berisi cURL lengkap dan JSON yang mengikuti draft editor. Ganti placeholder cookie dengan sesi login jika menjalankan request secara manual; browser dashboard menggunakan cookie otomatis. Dukungan tampilan tombol mengikuti versi WhatsApp penerima; mode teks bernomor tersedia bila diperlukan.
+
 ## REST API
 
 Ambil API key di **Pengaturan**, lalu kirim header `X-API-Key`. Parameter `phone` memilih perangkat pengirim; bila tidak diberikan, backend memilih perangkat online pertama. `to` menerima nomor berkode negara atau JID seperti `...@g.us` untuk grup dan `...@newsletter` untuk channel pada endpoint yang mendukungnya. Skema field lengkap tersedia di `/docs` dan `/openapi.json`.
@@ -920,6 +983,9 @@ Saat mengambil update, pakai `git pull --ff-only origin main` lalu pasang depend
 | UI terlihat lama | Reload halaman; pastikan file build baru tersedia dan reverse proxy/CDN tidak menyajikan index lama |
 | Sesi login hilang setelah restart | Pertahankan `storage/.session-secret` atau `GATEWAY_SESSION_SECRET` yang sama |
 | Pesan pertama tidak tercatat | Versi ini membuat database history saat write pertama; periksa akses tulis jika tetap gagal |
+| Bot CS tidak membalas | Aktifkan dan simpan, periksa perangkat online/pilihan perangkat, gunakan chat pribadi dari nomor lain, serta cek kata pemicu/cooldown/jeda admin |
+| Klik tombol lama membuka menu awal | Halaman atau revision alur sudah berubah; pilih kembali dari tombol pada balasan terbaru |
+| Bot CS meminta nomor admin | Isi nomor admin dengan kode negara sebelum mengaktifkan alur yang mempunyai halaman handoff |
 
 Untuk diagnosis, mulai dari `pm2 logs wa --lines 100`, status perangkat, dan respons lengkap API. Jangan membagikan session database, API key, cookie, atau token GitHub pada issue publik.
 
@@ -992,6 +1058,8 @@ Backend dipisahkan berdasarkan tanggung jawab. `main.py` hanya mengekspor `app` 
 | Status biasa/status grup | `gateway/routes/status.py` |
 | Grup/channel | `gateway/routes/groups.py`, `gateway/routes/newsletters.py` |
 | Auto-reply, aturan dan cooldown | `gateway/services/auto_reply.py` |
+| Bot CS, navigasi dan jeda admin | `gateway/services/customer_service.py`, `gateway/routes/customer_service.py` |
+| Validasi alur dan protobuf Bot CS | `gateway/messages/cs_models.py`, `gateway/messages/cs.py` |
 | Broadcast | `gateway/services/blast.py`, `gateway/routes/blast.py` |
 | Login/register, statistik/logs, aset React | `gateway/routes/dashboard.py` |
 | Auth dan database | `gateway/security.py`, `gateway/database.py` |

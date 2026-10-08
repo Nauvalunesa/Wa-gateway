@@ -36,8 +36,13 @@ Import model, builder, atau service tidak menjalankan factory aplikasi maupun me
 | `messages/store.py` | Cache pesan yang dipakai quoted reply |
 | `services/auto_reply.py` | Baca/simpan aturan, matching, deduplikasi dan cooldown |
 | `services/blast.py` | Rotasi perangkat, personalisasi dan delay broadcast |
+| `services/customer_service.py` | Konfigurasi bot CS, navigasi, deduplikasi, state per chat, jeda admin |
+| `messages/cs_models.py` | Validasi halaman, tombol, target, perangkat, dan konfigurasi CS |
+| `messages/cs.py` | Builder balasan CS menjadi native buttons/list, legacy buttons, atau teks |
 
-`routes/` berisi modul `devices`, `messages`, `interactive`, `airich`, `groups`, `newsletters`, `status`, `utilities`, `uploads`, `blast`, dan `dashboard`. Setiap router API mempunyai `router = APIRouter()`. Dashboard mendaftarkan endpoint cookie, middleware origin, dan halaman SPA melalui `register_dashboard(app)`.
+`routes/` berisi modul `devices`, `messages`, `interactive`, `airich`, `groups`, `newsletters`, `status`, `utilities`, `uploads`, `blast`, `customer_service`, dan `dashboard`. Setiap router API mempunyai `router = APIRouter()`. Dashboard mendaftarkan endpoint cookie, middleware origin, dan halaman SPA melalui `register_dashboard(app)`.
+
+Event pesan masuk memanggil Bot CS terlebih dahulu. Jika chat dimiliki alur CS atau sedang dijeda untuk admin, handler mengembalikan `True` sehingga Auto Reply AI Rich tidak membalas bersamaan. Bot yang dinonaktifkan atau pesan di luar cakupannya mengembalikan `False`, kemudian aturan lama diproses. Builder protobuf dan navigator yang sama dipakai simulator dashboard; preview tidak mengirim pesan dan tidak mengubah state percakapan nyata.
 
 ## Aturan dependensi
 

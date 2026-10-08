@@ -201,5 +201,5 @@ def register_dashboard(app):
             raise HTTPException(503, 'Frontend belum dibangun. Jalankan npm run build di folder frontend.')
         return FileResponse(dist / 'index.html', headers={'Cache-Control': 'no-cache'})
 
-    for route in ['/', '/login', '/register', '/devices', '/tools', '/airich', '/auto-reply', '/logs', '/blast', '/settings', '/channels']:
+    for route in ['/', '/login', '/register', '/devices', '/tools', '/airich', '/auto-reply', '/customer-service', '/logs', '/blast', '/settings', '/channels']:
         app.add_api_route(route, index, methods=['GET'], include_in_schema=False)

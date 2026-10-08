@@ -20,6 +20,7 @@ from neonize.aioze.events import (
 from gateway.database import init_user_db, log_message
 from gateway.messages.store import store as ms
 from gateway.services.auto_reply import try_airich_auto_reply
+from gateway.services.customer_service import try_customer_service
 from gateway.state import bot_numbers, bot_status, client_cleanup_tasks, clients, pairing_sessions
 from gateway.whatsapp.addressing import normalize_phone_number
 from gateway.whatsapp.runtime import GatewayClient as NewAClient
@@ -161,7 +162,9 @@ def start_neonize(username: str, phone: str, auto_connect: bool = True):
                     await log_message(username, f"DEVICE({phone})", m.chat_id, display_text, "OUTGOING")
 
             if not m.from_me:
-                auto_replied = await try_airich_auto_reply(c, username, phone, m)
+                auto_replied = await try_customer_service(c, username, phone, m)
+                if not auto_replied:
+                    auto_replied = await try_airich_auto_reply(c, username, phone, m)
                 if not auto_replied and m.text and m.text.lower() == "ping":
                     await m.reply("pong!")
         except Exception as e:

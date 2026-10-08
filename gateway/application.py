@@ -12,6 +12,7 @@ from gateway.middleware import restrict_internal_routes
 from gateway.routes import (
     airich,
     blast,
+    customer_service,
     devices,
     groups,
     interactive,
@@ -49,7 +50,7 @@ def create_app() -> FastAPI:
     )
     application.mount("/static", StaticFiles(directory="static"), name="static")
     for module in (
-        uploads, blast, devices, groups, messages, newsletters,
+        uploads, blast, customer_service, devices, groups, messages, newsletters,
         interactive, airich, status, utilities,
     ):
         application.include_router(module.router)
