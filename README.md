@@ -29,6 +29,7 @@ Screenshot memakai data ilustrasi untuk memperlihatkan UI, bukan statistik akun 
 
 ## Daftar isi
 
+- [Alur penggunaan pertama](#alur-penggunaan-pertama)
 - [Stack](#stack)
 - [Fitur dan halaman](#fitur-dan-halaman)
 - [Instalasi](#instalasi)
@@ -50,6 +51,19 @@ Screenshot memakai data ilustrasi untuk memperlihatkan UI, bukan statistik akun 
 - [Struktur repository](#struktur-repository)
 - [Mengembangkan backend](#mengembangkan-backend)
 - [Lisensi](#lisensi)
+
+## Alur penggunaan pertama
+
+Setelah instalasi dan build selesai, buka domain yang diarahkan ke gateway. Untuk instalasi ini gunakan [utusan.chat](https://utusan.chat).
+
+1. Daftar di `/register`, lalu masuk ke workspace. Browser menyimpan cookie sesi; halaman web tidak meminta API key.
+2. Buka **Perangkat**, masukkan nomor dengan kode negara, dan minta kode pairing. Di WhatsApp pilih **Perangkat tertaut → Tautkan perangkat → Tautkan dengan nomor telepon**, lalu masukkan kode. Tunggu status online.
+3. Buka **Kirim pesan**, pilih perangkat dan tujuan, lalu pilih jenis pesan. Preview serta URL, payload, dan contoh request mengikuti input composer. Periksa tujuan sebelum menekan kirim.
+4. Buka **Profil WhatsApp** untuk mengubah nama, about, foto, dan privasi pada perangkat pilihan. Auto-read baru berjalan setelah diaktifkan dan disimpan.
+5. Untuk balasan bertingkat, gunakan **Bot CS**: atur halaman, tombol tujuan, dan kontak admin; uji simulator sebelum mengaktifkan alur. Untuk aturan kata pemicu gunakan **Auto Reply**.
+6. Periksa **Log** untuk melihat detail pengiriman. Integrasi aplikasi lain dapat mengambil API key dari **Pengaturan** dan melihat endpoint lengkap di `/docs`.
+
+Top bar tetap di atas saat halaman di-scroll pada mobile dan desktop. Tombol navigasi membuka sidebar mobile sebagai drawer; drawer berada di atas top bar dan halaman tidak ikut scroll saat terbuka. Mode terang/gelap tersimpan pada browser tersebut.
 
 ## Stack
 
@@ -649,6 +663,23 @@ Endpoint berikut memerlukan cookie sesi dashboard dan hanya dapat mengelola pera
 Untuk foto, gunakan `mode` berupa `contain`, `cover`, atau `original` dan `background` berupa warna heksadesimal seperti `#ffffff`. SHA-256 harus berasal dari preview dengan file dan mode yang sama; perubahan menghasilkan HTTP 409 agar foto yang berbeda dari preview tidak terkirim.
 
 Nilai privasi: `read_receipts` = `all`/`none`; `last_seen`, `profile_photo`, `group_add` = `all`/`contacts`/`none`; `online` = `all`/`match_last_seen`; `calls` = `all`/`known`. Respons timeout perubahan dapat berarti WhatsApp masih memprosesnya; muat ulang sebelum mengirim ulang. Pillow dipasang melalui requirements untuk pemrosesan foto.
+
+Contoh mengaktifkan auto-read chat pribadi dan menyembunyikan centang biru untuk nomor yang sama:
+
+```bash
+curl --request PUT 'https://utusan.chat/api/web/wa-profile/preferences' \
+  --header 'Content-Type: application/json' \
+  --header 'Cookie: session=COOKIE_SESSION' \
+  --data-raw '{"phone":"628123456789","auto_read":true,"auto_read_scope":"private"}'
+
+curl --request PUT 'https://utusan.chat/api/web/wa-profile/privacy' \
+  --header 'Content-Type: application/json' \
+  --header 'Cookie: session=COOKIE_SESSION' \
+  --data-raw '{"phone":"628123456789","setting":"read_receipts","value":"none"}'
+```
+
+Ganti nomor dan cookie dengan milik akun Anda. Kedua pengaturan disimpan melalui request terpisah: menyimpan auto-read tidak otomatis mengganti privasi. Untuk perubahan melalui dashboard, pilih nilainya lalu klik tombol simpan/terapkan pada bagian terkait.
+
 
 ## REST API
 

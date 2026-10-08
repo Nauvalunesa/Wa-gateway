@@ -47,7 +47,7 @@
 :root[data-theme] .eyebrow { font-size: 10px; letter-spacing: 1.7px; }
 :root[data-theme] .card-title h2 { font-size: 16px; font-weight: 650; }
 :root[data-theme] .card-title p { font-size: 12px; line-height: 1.65; }
-:root[data-theme] .topbar { height: 76px; background: var(--surface); border-color: var(--line); }
+:root[data-theme] .topbar { position: sticky; top: 0; z-index: 30; flex-shrink: 0; height: 76px; background: var(--surface); border-color: var(--line); }
 :root[data-theme] .topbar-left { font-size: 12px; }
 :root[data-theme] .topbar-left strong { font-weight: 650; }
 .topbar-status { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; padding: 8px 12px; background: var(--surface-soft); border-radius: 30px; }
