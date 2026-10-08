@@ -7,6 +7,7 @@ python-multipart
 starlette
 itsdangerous
 protobuf>=6.32.1,<8
+pillow>=12,<13
 # Optional but often used with FastAPI/Neonize
 python-dotenv
 aiohttp

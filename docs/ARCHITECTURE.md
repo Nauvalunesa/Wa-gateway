@@ -116,3 +116,9 @@ Path runtime `storage/` dan `static/uploads/` tetap relatif terhadap working dir
 Lokasi aset React dihitung dari `PROJECT_ROOT` pada `config.py`, bukan lokasi file router dashboard. Memindahkan handler ke `gateway/routes/` tidak mengubah lokasi `frontend/dist/`. Aset build tetap dibuat menggunakan `npm --prefix frontend run build`.
 
 Database atau sesi tidak dipindahkan oleh refactor. Update tetap memakai prosedur backup, dependency install, build, dan restart dalam README.
+
+## Profil, privasi, dan auto-read
+
+`gateway/routes/profile.py` menyediakan endpoint cookie dashboard melalui dependency `dashboard_user`. Pemilihan perangkat wajib eksplisit dan online; helper tidak memakai fallback perangkat pertama. `gateway/services/profile.py` mengolah gambar dengan Pillow dan membaca metadata profil. Hasil JPEG preview diberi SHA-256 yang wajib cocok saat pengiriman. `gateway/messages/profile_models.py` memvalidasi nama, about, preferensi dan matriks privasi.
+
+`gateway/services/profile_privacy.py` menyimpan preferensi per akun/perangkat secara atomik. Nilai enum protobuf privasi dibaca melalui descriptor dan diubah menjadi nilai wire yang digunakan UI. Hook pesan masuk memanggil auto-read sebelum auto-reply; kegagalannya tidak menghentikan bot. Receipt memakai `ReceiptType.READ`, sedangkan Whatsmeow mengubahnya menjadi receipt privat apabila privasi WhatsApp menonaktifkan laporan dibaca. Pengujian profil memakai klien mock dan gambar sintetis; tidak mengubah akun WhatsApp sebenarnya.

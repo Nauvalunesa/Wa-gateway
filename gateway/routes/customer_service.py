@@ -1,22 +1,16 @@
 """Cookie-authenticated configuration, preview, and handoff controls for CS."""
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends
 from google.protobuf.json_format import MessageToDict
 from pydantic import BaseModel
 
 from gateway.messages.cs import build_cs_message, reply_content
 from gateway.messages.cs_models import CSConfig, CSPreviewPayload
-from gateway.security import verify_api_key
+from gateway.security import dashboard_user as cs_user
 from gateway.services.customer_service import (
     active_conversations, conversations, get_cs_settings, navigate, save_cs_settings,
 )
 
 router = APIRouter()
-
-
-async def cs_user(request: Request) -> str:
-    if not request.session.get("user"):
-        raise HTTPException(401, "Silakan masuk ke akun Anda")
-    return await verify_api_key(request, x_api_key=None, key=None)
 
 
 @router.get("/api/web/customer-service")

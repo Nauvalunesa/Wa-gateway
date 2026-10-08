@@ -41,6 +41,7 @@ Screenshot memakai data ilustrasi untuk memperlihatkan UI, bukan statistik akun 
 - [AI Rich](#ai-rich)
 - [Auto Reply](#auto-reply)
 - [Bot CS bertingkat](#bot-cs-bertingkat)
+- [Profil WhatsApp dan privasi](#profil-whatsapp-dan-privasi)
 - [REST API](#rest-api)
 - [Contoh request per fitur](#contoh-request-per-fitur)
 - [Panduan operasional](#panduan-operasional)
@@ -67,6 +68,7 @@ Screenshot memakai data ilustrasi untuk memperlihatkan UI, bukan statistik akun 
 | `/register`, `/login` | Daftar, konfirmasi password, login, sesi tersimpan |
 | `/` | Statistik pesan, grafik 7 hari, perangkat online, aktivitas terbaru |
 | `/devices` | Pairing kode, status perangkat, unduh sesi, hapus sesi |
+| `/wa-profile` | Nama, about, foto, auto-read, centang biru, terakhir dilihat dan privasi per perangkat |
 | `/tools` | Composer pesan, pilihan tujuan, preview, panduan request dan salin kode |
 | `/airich` | 12 jenis blok, editor, urutan blok, paket seluruh blok, validasi, preview |
 | `/auto-reply` | Aturan kata pemicu, cakupan chat/grup, cooldown, aktif/nonaktif |
@@ -606,6 +608,47 @@ Endpoint ini membutuhkan cookie login dashboard, dengan pemeriksaan origin pada 
 | POST | `/api/web/customer-service/reset` | Reset satu chat berdasarkan `phone` dan `chat` |
 
 Panel request pada halaman Bot CS berisi cURL lengkap dan JSON yang mengikuti draft editor. Ganti placeholder cookie dengan sesi login jika menjalankan request secara manual; browser dashboard menggunakan cookie otomatis. Dukungan tampilan tombol mengikuti versi WhatsApp penerima; mode teks bernomor tersedia bila diperlukan.
+
+## Profil WhatsApp dan privasi
+
+Buka **Profil WhatsApp** di sidebar atau tombol **Profil WA** pada perangkat. Pilih nomor milik akun Anda yang online. Perubahan diterapkan pada nomor yang dipilih; nama dan info/about disimpan terpisah. Tombol **Muat ulang profil** membaca ulang data WhatsApp setelah perubahan.
+
+### Foto profil
+
+Unggah JPEG, PNG, atau WebP maksimal 10 MB dan 20 megapiksel. Server memperbaiki orientasi EXIF, menghapus metadata gambar dari hasil JPEG, dan menyediakan tiga mode:
+
+| Mode | Hasil |
+| --- | --- |
+| Foto utuh dalam kotak | Gambar utuh dengan latar pilihan dalam JPEG 640 × 640 |
+| Crop kotak di tengah | Bagian tengah gambar menjadi JPEG 640 × 640 |
+| Rasio asli / PP panjang | Rasio dipertahankan, sisi terpanjang maksimal 640 px; eksperimental |
+
+Preview menampilkan JPEG hasil pemrosesan yang sama dengan bytes kiriman. Thumbnail bulat hanya ilustrasi. Mode PP panjang belum menjamin hasil di WhatsApp: server dapat menolak atau memotong gambar, dan aplikasi penerima dapat menampilkan thumbnail bulat. Klik **Terapkan foto profil** untuk mengirim; memilih foto saja tidak mengubah akun.
+
+### Auto-read dan centang biru
+
+Auto-read awalnya nonaktif. Aktifkan **Tandai pesan masuk sebagai dibaca secara otomatis**, pilih chat pribadi atau pribadi dan grup, lalu simpan. Preferensi tersimpan per akun dan nomor dalam `storage/<username>/config/profile_<phone>.json`, termasuk setelah restart. Pesan sendiri, edit pesan, status, dan channel tidak diproses. Kegagalan receipt dicatat tanpa menghentikan auto-reply.
+
+Pilih **Sembunyikan pada chat pribadi** pada laporan dibaca, lalu klik **Terapkan**. Ini mengubah privasi WhatsApp sebenarnya. Engine Whatsmeow mengikuti privasi tersebut ketika auto-read aktif. Receipt grup dan pemutaran pesan suara mengikuti pengecualian WhatsApp. Halaman juga menyediakan terakhir dilihat, visibilitas online/foto profil, undangan grup, serta panggilan nomor asing. Pengaturan pengecualian daftar kontak yang sudah ada tetap ditampilkan, tetapi penyuntingan daftar pengecualian dilakukan dari WhatsApp.
+
+### Endpoint profil dashboard
+
+Endpoint berikut memerlukan cookie sesi dashboard dan hanya dapat mengelola perangkat milik akun tersebut. Request browser memakai cookie otomatis; panel request menyediakan cURL lengkap yang mengikuti isi editor.
+
+| Metode | Endpoint | Isi |
+| --- | --- | --- |
+| GET | `/api/web/wa-profile?phone=628...` | Nama, about, JID, URL foto dan peringatan pembacaan parsial |
+| PUT | `/api/web/wa-profile/name` | JSON `phone`, `name` (1–25 karakter) |
+| PUT | `/api/web/wa-profile/about` | JSON `phone`, `about` (maksimal 139 karakter pada editor) |
+| POST | `/api/web/wa-profile/photo/preview` | Multipart `file`, `mode`, `background`; menghasilkan JPEG preview dan SHA-256 tanpa mengirim |
+| POST | `/api/web/wa-profile/photo` | Multipart yang sama, ditambah `phone` dan `sha256` dari preview |
+| GET | `/api/web/wa-profile/privacy?phone=628...` | Privasi WhatsApp terkini dan preferensi auto-read |
+| PUT | `/api/web/wa-profile/privacy` | JSON `phone`, `setting`, `value` |
+| PUT | `/api/web/wa-profile/preferences` | JSON `phone`, `auto_read`, `auto_read_scope` (`private`/`all`) |
+
+Untuk foto, gunakan `mode` berupa `contain`, `cover`, atau `original` dan `background` berupa warna heksadesimal seperti `#ffffff`. SHA-256 harus berasal dari preview dengan file dan mode yang sama; perubahan menghasilkan HTTP 409 agar foto yang berbeda dari preview tidak terkirim.
+
+Nilai privasi: `read_receipts` = `all`/`none`; `last_seen`, `profile_photo`, `group_add` = `all`/`contacts`/`none`; `online` = `all`/`match_last_seen`; `calls` = `all`/`known`. Respons timeout perubahan dapat berarti WhatsApp masih memprosesnya; muat ulang sebelum mengirim ulang. Pillow dipasang melalui requirements untuk pemrosesan foto.
 
 ## REST API
 

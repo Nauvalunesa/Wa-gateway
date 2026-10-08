@@ -11,6 +11,13 @@ from gateway.config import system_db_path
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
+async def dashboard_user(request: Request) -> str:
+    """Require a valid dashboard cookie without accepting an API key instead."""
+    if not request.session.get("user"):
+        raise HTTPException(401, "Silakan masuk ke akun Anda")
+    return await verify_api_key(request, x_api_key=None, key=None)
+
+
 def hash_password(password: str):
     return pwd_context.hash(password)
 
