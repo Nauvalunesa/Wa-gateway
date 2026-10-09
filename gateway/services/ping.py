@@ -1,5 +1,6 @@
 """Live server information for the WhatsApp ping response."""
 import asyncio
+import json
 import os
 from pathlib import Path
 import platform
@@ -10,6 +11,34 @@ from gateway.config import PROJECT_ROOT
 
 STARTED_AT = time.monotonic()
 GIB = 1024 ** 3
+preferences: dict[str, bool] = {}
+
+
+def ping_enabled(username: str) -> bool:
+    if username not in preferences:
+        path = Path("storage") / username / "config" / "ping.json"
+        try:
+            enabled = json.loads(path.read_text())["enabled"]
+            if not isinstance(enabled, bool):
+                raise ValueError("Invalid ping preference")
+            preferences[username] = enabled
+        except FileNotFoundError:
+            preferences[username] = True
+        except (OSError, ValueError, KeyError, TypeError):
+            preferences[username] = False
+    return preferences[username]
+
+
+def save_ping_enabled(username: str, enabled: bool):
+    path = Path("storage") / username / "config" / "ping.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    with temporary.open("w") as target:
+        json.dump({"enabled": enabled}, target)
+        target.flush()
+        os.fsync(target.fileno())
+    temporary.replace(path)
+    preferences[username] = enabled
 
 
 def _read(path: str) -> str:
