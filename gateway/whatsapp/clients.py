@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import os
+import time
 from typing import Optional
 
 from fastapi import HTTPException
@@ -22,6 +23,7 @@ from gateway.messages.store import store as ms
 from gateway.services.auto_reply import try_airich_auto_reply
 from gateway.services.customer_service import try_customer_service
 from gateway.services.profile_privacy import auto_read_message
+from gateway.services.ping import build_ping_reply
 from gateway.state import bot_numbers, bot_status, client_cleanup_tasks, clients, pairing_sessions
 from gateway.whatsapp.addressing import normalize_phone_number
 from gateway.whatsapp.runtime import GatewayClient as NewAClient
@@ -136,6 +138,7 @@ def start_neonize(username: str, phone: str, auto_connect: bool = True):
 
     @client.event(MessageEv)
     async def on_message(c, message):
+        received_at = time.perf_counter()
         if clients.get(session_id) is not client:
             return
         try:
@@ -167,8 +170,8 @@ def start_neonize(username: str, phone: str, auto_connect: bool = True):
                 auto_replied = await try_customer_service(c, username, phone, m)
                 if not auto_replied:
                     auto_replied = await try_airich_auto_reply(c, username, phone, m)
-                if not auto_replied and m.text and m.text.lower() == "ping":
-                    await m.reply("pong!")
+                if not auto_replied and not m.is_edit and m.text and m.text.strip().lower() == "ping":
+                    await m.reply(await build_ping_reply(received_at))
         except Exception as e:
             logging.getLogger(__name__).exception("on_message failed for session %s", session_id)
     if auto_connect:

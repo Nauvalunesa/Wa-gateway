@@ -609,6 +609,12 @@ Halaman yang ditandai **mengarahkan ke admin** menambahkan tautan `wa.me` nomor 
 
 Saat dijeda, aturan Auto Reply juga tidak membalas chat yang sama. Pengaturan cooldown mengurangi balasan beruntun; event dengan ID sama tidak dibalas ulang. State dipisahkan per akun, perangkat, dan chat. State percakapan berada di memori dan kembali ke awal setelah restart; konfigurasi alur tetap tersimpan. Menyimpan perubahan pengaturan juga mereset state akun agar memakai alur terbaru.
 
+### Perintah ping dan informasi server
+
+Kirim `ping` ke nomor perangkat untuk mendapat balasan `pong!` dengan waktu proses respons dalam ms, OS/arsitektur, model CPU, jumlah CPU logis, RAM terpakai/total, disk aplikasi terpakai/total, load CPU 1/5/15 menit, uptime server/bot, serta versi Python. Angka dibaca dari server saat perintah diproses; data yang tidak tersedia ditandai sebagai tidak tersedia.
+
+Nilai ms dihitung dari penerimaan event oleh gateway sampai balasan disiapkan, termasuk pemrosesan handler. Nilai tersebut bukan ping jaringan atau waktu pesan sampai di HP penerima. RAM dan uptime server menggambarkan sistem tempat proses berjalan, sedangkan disk memakai filesystem direktori aplikasi. Informasi IP, hostname, dan credential tidak disertakan. Perintah menerima huruf besar/kecil serta spasi di tepi teks. Bot CS dan aturan Auto Reply tetap mendapat prioritas: bila aturan tersebut menangani `ping`, balasan otomatisnya yang dipakai. Edit pesan tidak memicu balasan ping.
+
 ### Penutupan otomatis setelah 3 menit
 
 Pada **Pengaturan layanan**, `Akhiri jika tidak ada respons (menit)` bernilai **3** secara default. Bot mengirim **Pesan penutup otomatis** sekali ketika pelanggan tidak merespons sampai batas waktu, lalu menghapus sesi menu. Pesan penutup dapat diedit, dan `{business}` diganti dengan nama layanan.
