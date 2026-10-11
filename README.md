@@ -611,6 +611,8 @@ Saat dijeda, aturan Auto Reply juga tidak membalas chat yang sama. Pengaturan co
 
 ### Perintah ping dan informasi server
 
+Balasan memakai identitas **Utusan • WhatsApp Gateway** dan bagian **RESPONSE**, **SERVER INFO**, **MEMORY USAGE**, serta **RUNTIME & ENGINE**. Versi Neonize dan FastAPI dibaca dari paket yang terpasang; bagian engine menyebut Whatsmeow. Footer menyediakan tautan `https://utusan.chat` dan dokumentasi `/docs`.
+
 Di dashboard depan, kartu **Balasan Ping** menyediakan sakelar aktif/nonaktif untuk semua nomor milik akun. Pengaturan langsung tersimpan tanpa restart dalam `storage/<username>/config/ping.json`. Nilai awal aktif agar kompatibel dengan perilaku sebelumnya. Mematikan sakelar menghentikan balasan `pong!` bawaan; aturan Auto Reply atau Bot CS yang menangani kata `ping` tetap mengikuti konfigurasi masing-masing.
 
 API cookie dashboard: `GET /api/web/ping-settings` membaca `{ "enabled": true }`; `PUT` pada URL yang sama dengan JSON `{ "enabled": false }` menonaktifkan. Akun lain mempunyai pengaturan terpisah.

@@ -6,6 +6,7 @@ from pathlib import Path
 import platform
 import shutil
 import time
+from importlib.metadata import PackageNotFoundError, version
 
 from gateway.config import PROJECT_ROOT
 
@@ -54,6 +55,13 @@ def _duration(seconds: float) -> str:
     hours, seconds = divmod(seconds, 3600)
     minutes, seconds = divmod(seconds, 60)
     return f"{days} hari {hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
+def _package_version(package: str) -> str:
+    try:
+        return version(package)
+    except PackageNotFoundError:
+        return "Tidak tersedia"
 
 
 def process_memory_details() -> list[str]:
@@ -115,19 +123,36 @@ def server_details() -> list[str]:
     except (ValueError, IndexError):
         system_uptime = "Tidak tersedia"
     return [
-        f"OS: {platform.system()} {platform.release()} ({platform.machine()})",
-        f"CPU: {cpu}",
-        f"CPU logis: {os.cpu_count() or 'Tidak tersedia'}",
-        f"RAM server: {ram}",
-        f"Disk aplikasi: {disk_text}",
-        f"Load CPU (1/5/15 menit): {load}",
-        f"Uptime server: {system_uptime}",
-        f"Uptime bot: {_duration(time.monotonic()-STARTED_AT)}",
-        f"Python: {platform.python_version()}",
-    ] + process_memory_details()
+        "ᯓ *SERVER INFO* ᯓ",
+        f"⊹ OS: {platform.system()} {platform.release()} ({platform.machine()})",
+        f"⊹ CPU: {cpu}",
+        f"⊹ CPU logis: {os.cpu_count() or 'Tidak tersedia'}",
+        f"⊹ RAM server: {ram}",
+        f"⊹ Disk aplikasi: {disk_text}",
+        f"⊹ Load CPU (1/5/15 menit): {load}",
+        f"⊹ Uptime server: {system_uptime}",
+        f"⊹ Uptime bot: {_duration(time.monotonic()-STARTED_AT)}",
+    ] + process_memory_details() + [
+        "", "ᯓ *RUNTIME & ENGINE* ᯓ",
+        f"⊹ *Python*: {platform.python_version()}",
+        f"⊹ *Neonize*: {_package_version('neonize')}",
+        f"⊹ *FastAPI*: {_package_version('fastapi')}",
+        "⊹ *WhatsApp engine*: Whatsmeow",
+    ]
 
 
 async def build_ping_reply(started_at: float) -> str:
     details = await asyncio.to_thread(server_details)
     elapsed_ms = max(0, (time.perf_counter()-started_at)*1000)
-    return "pong! 🏓\n\n" + f"⚡ Proses respons: {elapsed_ms:.2f} ms\n" + "\n".join(details) + "\n\nWaktu dihitung sejak event diterima sampai balasan disiapkan, sebelum pengiriman WhatsApp."
+    return (
+        "✦ *UTUSAN • WHATSAPP GATEWAY* ✦\n"
+        "🏓 *pong!*\n\n"
+        "ᯓ *RESPONSE* ᯓ\n"
+        f"⊹ *Proses respons*: {elapsed_ms:.2f} ms\n"
+        "Waktu sejak event diterima sampai balasan siap, sebelum pengiriman WhatsApp.\n\n"
+        + "\n".join(details)
+        + "\n\nᯓ *UTUSAN.CHAT* ᯓ\n"
+        "Kelola WhatsApp, pesan interaktif & otomatisasi dalam satu dashboard.\n"
+        "🌐 https://utusan.chat\n"
+        "📖 https://utusan.chat/docs"
+    )

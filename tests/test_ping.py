@@ -48,6 +48,10 @@ class PingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Disk aplikasi: 1.00 / 2.00 GiB', result)
         self.assertIn('Uptime server: 1 hari 01:01:01', result)
         self.assertIn('sebelum pengiriman WhatsApp', result)
+        self.assertIn('*UTUSAN • WHATSAPP GATEWAY*', result)
+        self.assertIn('https://utusan.chat/docs', result)
+        self.assertIn('*RUNTIME & ENGINE*', result)
+        self.assertIn(f'*Neonize*: {ping.version("neonize")}', result)
         with patch.object(ping, '_read', return_value=''), patch.object(ping.shutil, 'disk_usage', side_effect=OSError), patch.object(ping.os, 'getloadavg', side_effect=OSError):
             fallback = await ping.build_ping_reply(time.perf_counter())
         self.assertIn('Tidak tersedia', fallback)
