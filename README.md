@@ -583,6 +583,8 @@ Editor memvalidasi JSON terhadap schema protobuf Neonize dan membatasi ukuran ra
 
 Klik berulang dengan `request_id` sama tidak mengirim ulang pesan. Timeout dicatat sebagai hasil belum pasti; periksa WhatsApp sebelum membuat permintaan baru. Status `sent` berarti Neonize menerima pengiriman, bukan bukti pesan sudah dibaca penerima.
 
+Jika yang di-reply adalah teks ekspor chat berlabel `Part n/m`, CRM membaca objek `message` protobuf yang lengkap di potongan itu dan menampilkan daftar pilihan. Pilih satu record; JSON pilihan dan tombol kirim akan muncul sesudahnya. Tekan **Jalankan** untuk membangun ulang protobuf terpilih dan mengirimnya ke chat asal. Record yang belum lengkap/terpotong akan ditolak; kirim satu pesan asli atau objek `message` lengkap agar dapat dibangun ulang. Pilihan dibatasi sepuluh record per potongan.
+
 ### Konversi JID ↔ LID
 
 Di `/crm`, pilih perangkat online dan isi nomor/JID `@s.whatsapp.net` untuk mendapatkan `@lid`, atau isi `@lid` untuk mendapatkan JID nomor. Konversi memakai `get_lid_from_pn` / `get_pn_from_lid` Neonize dari mapping store perangkat tersebut. Identitas LID tidak dihitung dari nomor. Mapping yang belum tersedia menghasilkan pesan error; gunakan perangkat yang pernah berinteraksi dengan kontak tersebut.
