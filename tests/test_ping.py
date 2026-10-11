@@ -16,6 +16,26 @@ from gateway.whatsapp import clients as wa
 
 
 class PingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_process_memory_uses_live_rss_not_peak_and_formats_mib(self):
+        status = 'VmRSS: 473907 kB\nVmHWM: 524288 kB\nVmSize: 1048576 kB\nRssAnon: 204800 kB\nVmSwap: 0 kB\nThreads: 17\n'
+        with patch.object(ping, '_read', return_value=status):
+            result = '\n'.join(ping.process_memory_details())
+        self.assertIn('ᯓ *MEMORY USAGE* ᯓ', result)
+        self.assertIn('⊹ *rss*: 462.8MiB', result)
+        self.assertIn('⊹ *rssPeak*: 512.0MiB', result)
+        self.assertIn('⊹ *virtual*: 1024.0MiB', result)
+        self.assertIn('⊹ *anonymous*: 200.0MiB', result)
+        self.assertIn('⊹ *swap*: 0.0MiB', result)
+        self.assertIn('⊹ *threads*: 17', result)
+        for label in ('heapTotal', 'heapUsed', 'external', 'arrayBuffers'):
+            self.assertIn(f'⊹ *{label}*: N/A', result)
+        with patch.object(ping, '_read', return_value='VmRSS: invalid kB\nVmSwap: -1 kB\nVmHWM: 12 bytes\nThreads: bad'):
+            unavailable = '\n'.join(ping.process_memory_details())
+        self.assertIn('⊹ *rss*: Tidak tersedia', unavailable)
+        self.assertIn('⊹ *rssPeak*: Tidak tersedia', unavailable)
+        self.assertIn('⊹ *swap*: Tidak tersedia', unavailable)
+        self.assertIn('⊹ *threads*: Tidak tersedia', unavailable)
+
     async def test_live_metrics_and_duration_without_network_ping_claim(self):
         def read(path):
             return {'/proc/cpuinfo': 'model name : Example CPU\n', '/proc/meminfo': 'MemTotal: 2097152 kB\nMemAvailable: 1048576 kB\n', '/proc/uptime': '90061 0'}.get(path, '')

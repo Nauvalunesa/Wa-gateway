@@ -56,6 +56,32 @@ def _duration(seconds: float) -> str:
     return f"{days} hari {hours:02d}:{minutes:02d}:{seconds:02d}"
 
 
+def process_memory_details() -> list[str]:
+    """Read this process, including native Neonize allocations, from Linux procfs."""
+    values = {}
+    for line in _read("/proc/self/status").splitlines():
+        label, _, raw = line.partition(":")
+        parts = raw.split()
+        try:
+            if label == "Threads":
+                count = int(parts[0])
+                if count >= 0:
+                    values[label] = str(count)
+            elif label in ("VmRSS", "VmHWM", "VmSize", "RssAnon", "VmSwap") and parts[1] == "kB":
+                size = int(parts[0])
+                if size >= 0:
+                    values[label] = f"{size / 1024:.1f}MiB"
+        except (ValueError, IndexError):
+            continue
+    fields = [("rss", "VmRSS"), ("rssPeak", "VmHWM"), ("virtual", "VmSize"),
+              ("anonymous", "RssAnon"), ("swap", "VmSwap"), ("threads", "Threads")]
+    lines = ["", "ᯓ *MEMORY USAGE* ᯓ"]
+    lines.extend(f"⊹ *{label}*: {values.get(field, 'Tidak tersedia')}" for label, field in fields)
+    lines.extend(f"⊹ *{label}*: N/A" for label in ("heapTotal", "heapUsed", "external", "arrayBuffers"))
+    lines.append("N/A: metrik Node.js/V8; proses bot ini memakai Python. RSS mencakup memori proses bot dan library native.")
+    return lines
+
+
 def server_details() -> list[str]:
     """Read local metrics without shell commands or a blocking CPU sample."""
     cpu = platform.machine() or "Tidak tersedia"
@@ -98,7 +124,7 @@ def server_details() -> list[str]:
         f"Uptime server: {system_uptime}",
         f"Uptime bot: {_duration(time.monotonic()-STARTED_AT)}",
         f"Python: {platform.python_version()}",
-    ]
+    ] + process_memory_details()
 
 
 async def build_ping_reply(started_at: float) -> str:

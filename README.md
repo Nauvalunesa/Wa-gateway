@@ -617,6 +617,10 @@ API cookie dashboard: `GET /api/web/ping-settings` membaca `{ "enabled": true }`
 
 Kirim `ping` ke nomor perangkat untuk mendapat balasan `pong!` dengan waktu proses respons dalam ms, OS/arsitektur, model CPU, jumlah CPU logis, RAM terpakai/total, disk aplikasi terpakai/total, load CPU 1/5/15 menit, uptime server/bot, serta versi Python. Angka dibaca dari server saat perintah diproses; data yang tidak tersedia ditandai sebagai tidak tersedia.
 
+Balasan juga mempunyai blok `ᯓ *MEMORY USAGE* ᯓ` dengan angka proses bot dalam MiB: `rss` (RAM resident saat ini), `rssPeak` (puncak RSS), `virtual` (ruang memori virtual), `anonymous` (RAM resident anonim), `swap`, dan `threads`. Data dibaca dari `/proc/self/status` pada proses gateway, bukan proses PM2, dan mencakup library native yang berada di proses yang sama. Ini pemakaian bersama seluruh akun/perangkat dalam proses, bukan RAM satu nomor. `virtual` tidak berarti RAM fisik terpakai dan rincian tersebut tidak boleh dijumlahkan. Data yang tidak tersedia tidak ditulis sebagai nol.
+
+Nama `heapTotal`, `heapUsed`, `external`, dan `arrayBuffers` ditampilkan sebagai `N/A` karena merupakan [metrik Node.js/V8](https://nodejs.org/api/process.html#processmemoryusage), sedangkan backend menggunakan Python. Tidak ada angka heap V8 rekaan atau pelacakan alokasi Python tambahan yang dinyalakan hanya untuk perintah ping.
+
 Nilai ms dihitung dari penerimaan event oleh gateway sampai balasan disiapkan, termasuk pemrosesan handler. Nilai tersebut bukan ping jaringan atau waktu pesan sampai di HP penerima. RAM dan uptime server menggambarkan sistem tempat proses berjalan, sedangkan disk memakai filesystem direktori aplikasi. Informasi IP, hostname, dan credential tidak disertakan. Perintah menerima huruf besar/kecil serta spasi di tepi teks. Bot CS dan aturan Auto Reply tetap mendapat prioritas: bila aturan tersebut menangani `ping`, balasan otomatisnya yang dipakai. Edit pesan tidak memicu balasan ping.
 
 ### Penutupan otomatis setelah 3 menit
