@@ -6,7 +6,6 @@ from pathlib import Path
 import platform
 import shutil
 import time
-from importlib.metadata import PackageNotFoundError, version
 
 from gateway.config import PROJECT_ROOT
 
@@ -54,14 +53,7 @@ def _duration(seconds: float) -> str:
     days, seconds = divmod(seconds, 86400)
     hours, seconds = divmod(seconds, 3600)
     minutes, seconds = divmod(seconds, 60)
-    return f"{days} hari {hours:02d}:{minutes:02d}:{seconds:02d}"
-
-
-def _package_version(package: str) -> str:
-    try:
-        return version(package)
-    except PackageNotFoundError:
-        return "Tidak tersedia"
+    return (f"{days} hari " if days else "") + f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 
 def process_memory_details() -> list[str]:
@@ -75,19 +67,19 @@ def process_memory_details() -> list[str]:
                 count = int(parts[0])
                 if count >= 0:
                     values[label] = str(count)
-            elif label in ("VmRSS", "VmHWM", "VmSize", "RssAnon", "VmSwap") and parts[1] == "kB":
+            elif label in ("VmRSS", "VmHWM", "VmSwap") and parts[1] == "kB":
                 size = int(parts[0])
                 if size >= 0:
                     values[label] = f"{size / 1024:.1f}MiB"
         except (ValueError, IndexError):
             continue
-    fields = [("rss", "VmRSS"), ("rssPeak", "VmHWM"), ("virtual", "VmSize"),
-              ("anonymous", "RssAnon"), ("swap", "VmSwap"), ("threads", "Threads")]
-    lines = ["", "ᯓ *MEMORY USAGE* ᯓ"]
-    lines.extend(f"⊹ *{label}*: {values.get(field, 'Tidak tersedia')}" for label, field in fields)
-    lines.extend(f"⊹ *{label}*: N/A" for label in ("heapTotal", "heapUsed", "external", "arrayBuffers"))
-    lines.append("N/A: metrik Node.js/V8; proses bot ini memakai Python. RSS mencakup memori proses bot dan library native.")
-    return lines
+    def value(field):
+        return values.get(field, "Tidak tersedia")
+    return [
+        "", "ᯓ *MEMORY USAGE* ᯓ",
+        f"⊹ *rss*: {value('VmRSS')} · *rssPeak*: {value('VmHWM')}",
+        f"⊹ *swap*: {value('VmSwap')} · *threads*: {value('Threads')}",
+    ]
 
 
 def server_details() -> list[str]:
@@ -123,36 +115,24 @@ def server_details() -> list[str]:
     except (ValueError, IndexError):
         system_uptime = "Tidak tersedia"
     return [
-        "ᯓ *SERVER INFO* ᯓ",
-        f"⊹ OS: {platform.system()} {platform.release()} ({platform.machine()})",
-        f"⊹ CPU: {cpu}",
-        f"⊹ CPU logis: {os.cpu_count() or 'Tidak tersedia'}",
+        "ᯓ *SERVER* ᯓ",
+        f"⊹ OS: {platform.system()} ({platform.machine()})",
+        f"⊹ CPU: {cpu} · {os.cpu_count() or '?'} CPU logis",
         f"⊹ RAM server: {ram}",
         f"⊹ Disk aplikasi: {disk_text}",
-        f"⊹ Load CPU (1/5/15 menit): {load}",
+        f"⊹ Load (1/5/15m): {load}",
         f"⊹ Uptime server: {system_uptime}",
         f"⊹ Uptime bot: {_duration(time.monotonic()-STARTED_AT)}",
-    ] + process_memory_details() + [
-        "", "ᯓ *RUNTIME & ENGINE* ᯓ",
-        f"⊹ *Python*: {platform.python_version()}",
-        f"⊹ *Neonize*: {_package_version('neonize')}",
-        f"⊹ *FastAPI*: {_package_version('fastapi')}",
-        "⊹ *WhatsApp engine*: Whatsmeow",
-    ]
+    ] + process_memory_details()
 
 
 async def build_ping_reply(started_at: float) -> str:
     details = await asyncio.to_thread(server_details)
     elapsed_ms = max(0, (time.perf_counter()-started_at)*1000)
     return (
-        "✦ *UTUSAN • WHATSAPP GATEWAY* ✦\n"
-        "🏓 *pong!*\n\n"
-        "ᯓ *RESPONSE* ᯓ\n"
-        f"⊹ *Proses respons*: {elapsed_ms:.2f} ms\n"
-        "Waktu sejak event diterima sampai balasan siap, sebelum pengiriman WhatsApp.\n\n"
+        "*UTUSAN* • 🏓 *pong!*\n"
+        f"⚡ Proses respons: {elapsed_ms:.2f} ms\n\n"
         + "\n".join(details)
-        + "\n\nᯓ *UTUSAN.CHAT* ᯓ\n"
-        "Kelola WhatsApp, pesan interaktif & otomatisasi dalam satu dashboard.\n"
-        "🌐 https://utusan.chat\n"
+        + "\n\n🌐 https://utusan.chat\n"
         "📖 https://utusan.chat/docs"
     )

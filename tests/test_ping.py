@@ -22,19 +22,17 @@ class PingTests(unittest.IsolatedAsyncioTestCase):
             result = '\n'.join(ping.process_memory_details())
         self.assertIn('ᯓ *MEMORY USAGE* ᯓ', result)
         self.assertIn('⊹ *rss*: 462.8MiB', result)
-        self.assertIn('⊹ *rssPeak*: 512.0MiB', result)
-        self.assertIn('⊹ *virtual*: 1024.0MiB', result)
-        self.assertIn('⊹ *anonymous*: 200.0MiB', result)
+        self.assertIn('*rssPeak*: 512.0MiB', result)
         self.assertIn('⊹ *swap*: 0.0MiB', result)
-        self.assertIn('⊹ *threads*: 17', result)
+        self.assertIn('*threads*: 17', result)
         for label in ('heapTotal', 'heapUsed', 'external', 'arrayBuffers'):
-            self.assertIn(f'⊹ *{label}*: N/A', result)
+            self.assertNotIn(label, result)
         with patch.object(ping, '_read', return_value='VmRSS: invalid kB\nVmSwap: -1 kB\nVmHWM: 12 bytes\nThreads: bad'):
             unavailable = '\n'.join(ping.process_memory_details())
         self.assertIn('⊹ *rss*: Tidak tersedia', unavailable)
-        self.assertIn('⊹ *rssPeak*: Tidak tersedia', unavailable)
+        self.assertIn('*rssPeak*: Tidak tersedia', unavailable)
         self.assertIn('⊹ *swap*: Tidak tersedia', unavailable)
-        self.assertIn('⊹ *threads*: Tidak tersedia', unavailable)
+        self.assertIn('*threads*: Tidak tersedia', unavailable)
 
     async def test_live_metrics_and_duration_without_network_ping_claim(self):
         def read(path):
@@ -47,11 +45,10 @@ class PingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('RAM server: 1.00 / 2.00 GiB', result)
         self.assertIn('Disk aplikasi: 1.00 / 2.00 GiB', result)
         self.assertIn('Uptime server: 1 hari 01:01:01', result)
-        self.assertIn('sebelum pengiriman WhatsApp', result)
-        self.assertIn('*UTUSAN • WHATSAPP GATEWAY*', result)
+        self.assertIn('*UTUSAN*', result)
         self.assertIn('https://utusan.chat/docs', result)
-        self.assertIn('*RUNTIME & ENGINE*', result)
-        self.assertIn(f'*Neonize*: {ping.version("neonize")}', result)
+        self.assertNotIn('ENGINE', result)
+        self.assertNotIn('Neonize', result)
         with patch.object(ping, '_read', return_value=''), patch.object(ping.shutil, 'disk_usage', side_effect=OSError), patch.object(ping.os, 'getloadavg', side_effect=OSError):
             fallback = await ping.build_ping_reply(time.perf_counter())
         self.assertIn('Tidak tersedia', fallback)
