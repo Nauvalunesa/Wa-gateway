@@ -14,6 +14,29 @@ from gateway.services.crm_access import crm_owner
 _EXPORT_PART = re.compile(r'Part\s+(\d+)\s*/\s*(\d+)', re.IGNORECASE)
 
 
+def normalize_proto_json(data,descriptor):
+    """Accept equivalent camel-case acronym spellings found in WhatsApp exports."""
+    if isinstance(data,list):return [normalize_proto_json(value,descriptor) for value in data]
+    if not isinstance(data,dict):return data
+    fields={field.name.lower():field for field in descriptor.fields}
+    result={}
+    for key,value in data.items():
+        field=descriptor.fields_by_name.get(key) or fields.get(key.lower())
+        if field is None:
+            result[key]=value
+        elif field.message_type is None:
+            if isinstance(value,dict) and {'low','high'}<=value.keys():
+                value=(int(value['high'])<<32)|(int(value['low'])&0xffffffff)
+            result[field.name]=value
+        elif field.message_type.GetOptions().map_entry and isinstance(value,dict):
+            value_field=field.message_type.fields_by_name['value']
+            result[field.name]={item:(normalize_proto_json(child,value_field.message_type)
+                if value_field.message_type else child) for item,child in value.items()}
+        else:
+            result[field.name]=normalize_proto_json(value,field.message_type)
+    return result
+
+
 def export_messages(text):
     """Read protobuf Message objects embedded in a chat-export JSON fragment."""
     candidates=[]
@@ -25,7 +48,7 @@ def export_messages(text):
             visible={key:value for key,value in record.items() if key not in (
                 'messageContextInfo','protocolMessage','senderKeyDistributionMessage','keepInChatMessage')}
             if not visible:continue
-            protobuf=validate_raw(record)
+            protobuf=validate_raw(normalize_proto_json(record,Message.DESCRIPTOR))
             if protobuf.ListFields():candidates.append(protobuf)
         except (json.JSONDecodeError,ValueError,TypeError):
             continue
