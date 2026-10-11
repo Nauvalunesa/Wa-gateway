@@ -69,6 +69,8 @@
 :root[data-theme] .sidebar .nav-new { background: #253f3b; color: #94e0c4; font-size: 8px; }
 :root[data-theme] .sidebar .active .nav-new { background: #244c3b20; color: #194d3a; }
 :root[data-theme] .sidebar-bottom { padding-top: 30px; }
+:root[data-theme] .sidebar nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+:root[data-theme] .sidebar-brand, :root[data-theme] .workspace-switch, :root[data-theme] .sidebar-bottom { flex-shrink: 0; }
 :root[data-theme] .connection-widget { background: #192e3a; border-color: #2a424f; border-radius: 13px; padding: 15px; }
 :root[data-theme] .connection-widget strong { color: #d4e7ef; font-size: 11px; }
 :root[data-theme] .connection-widget p { color: #92acbc; font-size: 10px; }
