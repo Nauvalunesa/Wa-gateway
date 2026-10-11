@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import re
 import uuid
-from neonize.proto.Neonize_pb2 import JID
+from neonize.utils import build_jid
 
 
 def owner_phones(username):
@@ -25,19 +25,19 @@ def set_owner_phones(username,phones):
 
 
 async def crm_owner(client,username,phone,message):
-    if getattr(message,'from_me',False): return JID(User=phone,Server='s.whatsapp.net')
+    if getattr(message,'from_me',False): return build_jid(phone)
     allowed=owner_phones(username)
     if not allowed:return None
     sender=getattr(message,'sender',None)
     alternate=getattr(message,'sender_alt',None)
     for candidate in (sender,alternate):
         if candidate is not None and candidate.Server=='s.whatsapp.net':
-            if candidate.User in allowed:return JID(User=candidate.User,Server='s.whatsapp.net')
+            if candidate.User in allowed:return build_jid(candidate.User)
             return None
     if sender is not None and sender.Server=='lid':
         try:
             resolved=await asyncio.wait_for(client.get_pn_from_lid(sender),timeout=5)
             if resolved.Server=='s.whatsapp.net' and resolved.User in allowed:
-                return JID(User=resolved.User,Server=resolved.Server)
+                return build_jid(resolved.User,server=resolved.Server)
         except Exception: pass
     return None

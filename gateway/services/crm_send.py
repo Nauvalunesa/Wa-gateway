@@ -2,7 +2,7 @@
 import asyncio
 import re
 from fastapi import HTTPException
-from neonize.proto.Neonize_pb2 import JID
+from neonize.utils import build_jid
 from gateway.messages.crm_models import validate_raw
 from gateway.services import crm
 from gateway.database import log_message
@@ -16,7 +16,7 @@ def destination(value):
     pattern=r'[1-9][0-9-]{5,30}' if server=='g.us' else r'[1-9][0-9]{6,19}'
     if server not in ('s.whatsapp.net','lid','g.us') or not re.fullmatch(pattern,user):
         raise HTTPException(422,'Tujuan harus nomor berkode negara atau JID grup/chat pribadi')
-    return JID(User=user,Server=server)
+    return build_jid(user,server=server)
 
 
 async def run_item(client,username,item,phone,to,request_id):

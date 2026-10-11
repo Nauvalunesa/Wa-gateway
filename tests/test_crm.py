@@ -21,10 +21,22 @@ from gateway.services.crm_access import set_owner_phones
 from gateway.services.jid_conversion import convert_jid
 
 
+async def serialize_send(jid,message,*args,**kwargs):
+    # Neonize serializes both objects before calling its native transport.
+    jid.SerializeToString()
+    message.SerializeToString()
+
+
+async def serialize_document(jid,*args,**kwargs):
+    jid.SerializeToString()
+
+
 class RawCRMTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.original=os.getcwd();self.directory=tempfile.TemporaryDirectory(prefix='utusan-crm-');os.chdir(self.directory.name)
         self.client=AsyncMock();self.phone='628123456789';self.owner=self.phone+'@s.whatsapp.net'
+        self.client.send_message.side_effect=serialize_send
+        self.client.send_document.side_effect=serialize_document
         self.log=patch('gateway.services.crm_send.log_message',new_callable=AsyncMock);self.log.start()
 
     async def asyncTearDown(self):
@@ -107,8 +119,10 @@ class RawCRMTests(unittest.IsolatedAsyncioTestCase):
         self.client.get_lid_from_pn.return_value=JID(User='123456789123',Server='lid')
         converted=await convert_jid(self.client,'6281776348790@s.whatsapp.net')
         self.assertEqual(converted['result'],'123456789123@lid')
+        self.client.get_lid_from_pn.await_args.args[0].SerializeToString()
         self.client.get_pn_from_lid.return_value=JID(User='6281776348790',Server='s.whatsapp.net')
         self.assertEqual((await convert_jid(self.client,'123456789123@lid'))['result'],'6281776348790@s.whatsapp.net')
+        self.client.get_pn_from_lid.await_args.args[0].SerializeToString()
         self.client.get_pn_from_lid.return_value=JID()
         with self.assertRaises(HTTPException) as error:await convert_jid(self.client,'123456789123@lid')
         self.assertEqual(error.exception.status_code,404)
@@ -184,7 +198,7 @@ class CRMAPITests(unittest.TestCase):
         item=self.http.post(self.base,json={'name':'hello','payload':{'conversation':'Hi'}}).json()
         body={'phone':'628123456789','to':'120363123456789@g.us','request_id':'replay_123'}
         self.assertEqual(self.http.post(self.base+'/'+item['id']+'/run',json=body).status_code,503)
-        client=AsyncMock()
+        client=AsyncMock();client.send_message.side_effect=serialize_send
         with patch('gateway.routes.crm.get_client',return_value=(client,body['phone'])),patch('gateway.services.crm_send.log_message',new_callable=AsyncMock):
             response=self.http.post(self.base+'/'+item['id']+'/run',json=body)
             self.assertEqual(response.status_code,200,response.text)
