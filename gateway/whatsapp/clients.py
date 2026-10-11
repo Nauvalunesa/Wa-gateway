@@ -23,6 +23,7 @@ from gateway.messages.store import store as ms
 from gateway.services.auto_reply import try_airich_auto_reply
 from gateway.services.customer_service import try_customer_service
 from gateway.services.profile_privacy import auto_read_message
+from gateway.services.crm_bot import try_raw_crm
 from gateway.services.ping import build_ping_reply, ping_enabled
 from gateway.state import bot_numbers, bot_status, client_cleanup_tasks, clients, pairing_sessions
 from gateway.whatsapp.addressing import normalize_phone_number
@@ -159,6 +160,9 @@ def start_neonize(username: str, phone: str, auto_connect: bool = True):
                 if hasattr(m, 'sender_alt') and m.sender_alt:
                     sender_info += f" (Admin: {m.sender_alt.User}@{m.sender_alt.Server})"
                 print(f"📰 {log_prefix} in {m.chat_id} by {sender_info}: {display_text}")
+
+            if await try_raw_crm(c, username, phone, m):
+                return
 
             if m.from_me:
                 # Log outgoing messages (including those synced from other devices)

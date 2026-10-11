@@ -42,6 +42,7 @@ Screenshot memakai data ilustrasi untuk memperlihatkan UI, bukan statistik akun 
 - [AI Rich](#ai-rich)
 - [Auto Reply](#auto-reply)
 - [Bot CS bertingkat](#bot-cs-bertingkat)
+- [CRM raw message](#crm-raw-message)
 - [Profil WhatsApp dan privasi](#profil-whatsapp-dan-privasi)
 - [REST API](#rest-api)
 - [Contoh request per fitur](#contoh-request-per-fitur)
@@ -87,6 +88,7 @@ Top bar tetap di atas saat halaman di-scroll pada mobile dan desktop. Tombol nav
 | `/airich` | 12 jenis blok, editor, urutan blok, paket seluruh blok, validasi, preview |
 | `/auto-reply` | Aturan kata pemicu, cakupan chat/grup, cooldown, aktif/nonaktif |
 | `/customer-service` | Bot CS, menu bertingkat, button reply/list, FAQ, kontak admin, simulator |
+| `/crm` | Ekstraksi raw message, JSON lengkap, koleksi DB, aksi, owner tambahan, konversi JID ↔ LID |
 | `/blast` | Broadcast CSV, personalisasi, beberapa perangkat, delay pengiriman |
 | `/channels` | Daftar channel, informasi, ikuti/berhenti mengikuti, kirim pesan |
 | `/logs` | Pencarian, pagination, detail pesan, salin isi, ekspor CSV |
@@ -561,6 +563,47 @@ Untuk mengirim dari contoh, tambahkan `--send --to NOMOR --phone PERANGKAT` dan 
 Auto Reply berada di halaman tersendiri. Buat aturan berisi kata pemicu, pencocokan **mengandung** atau **persis**, cakupan semua chat/chat pribadi/grup, cooldown, dan blok pesan balasan. Aturan disimpan per akun. Pesan dari perangkat sendiri tidak memicu balasan otomatis; deduplikasi dan cooldown membatasi pengulangan.
 
 API dashboard untuk aturan adalah `GET`/`PUT /api/web/airich/auto-replies` dan memakai cookie login.
+
+## CRM raw message
+
+CRM di sini adalah alat untuk mengambil **raw protobuf JSON pesan WhatsApp**, bukan sistem data pelanggan. Fitur ini dibangun di gateway menggunakan Neonize; `crm` bukan perintah bawaan library.
+
+1. Gunakan nomor WhatsApp yang terhubung ke akun, atau nomor pada **Owner tambahan** di halaman `/crm`.
+2. Di chat pribadi atau grup, reply pesan yang ingin diambil, lalu ketik `crm`.
+3. Bot mengirim JSON dan menu ke **chat pribadi owner yang meminta**, termasuk ketika perintah berasal dari grup. JSON panjang dikirim sebagai dokumen `raw-message.json`, tanpa dipotong.
+4. **Jalankan** mengirim ulang raw message ke chat asal yang tercantum pada menu. Perintah ini tidak menjalankan Python, JavaScript, atau shell.
+5. **Simpan ke DB** menyimpan arsip; **Tambah ke Aksi** menyimpan pesan dalam koleksi aksi. Keduanya tidak mengirim ulang pesan.
+6. Buka `/crm` untuk memilih koleksi, menyalin JSON, menyimpan salinan, menghapus, atau menjalankan pesan melalui perangkat dan tujuan yang dipilih. Tujuan dapat berupa nomor berkode negara, `nomor@s.whatsapp.net`, LID `identitas@lid`, atau JID grup `identitas@g.us`.
+
+Nomor terhubung selalu berhak memakai CRM. Owner tambahan berlaku hanya untuk perangkat milik akun tersebut; pemilik dashboard dapat menambah atau mencabutnya. Pemeriksaan pesan memakai identitas sender dari WhatsApp, termasuk `SenderAlt` dan mapping LID → nomor; nama profil dan teks pesan tidak dijadikan identitas. Jika identitas LID belum dapat dipetakan, akses ditolak sampai mapping tersedia. Hasil dan tombol terikat pada owner yang meminta dan perangkat asal, sehingga owner lain tidak dapat menggunakan tombol draft tersebut.
+
+Tombol hasil ekstraksi berlaku **15 menit**. Jika tombol tidak tampil, menu menyediakan perintah teks `crm jalankan <id>`, `crm simpan <id>`, dan `crm aksi <id>`. ID diperoleh dari hasil CRM. Pesan tersimpan tidak ikut kedaluwarsa. Penyimpanan berada di `storage/<username>/crm/raw.sqlite3`, sedangkan daftar owner tambahan di `storage/<username>/config/crm_owners.json`. Keduanya perlu disertakan dalam backup data akun, bukan di-commit ke GitHub.
+
+Editor memvalidasi JSON terhadap schema protobuf Neonize dan membatasi ukuran raw message ke **256 KiB**. Perubahan editor harus disimpan sebelum dijalankan. Field harus memakai ejaan schema yang tepat, misalnya `buttonParamsJSON`. Replay media memakai metadata/URL media asli; jika sudah kedaluwarsa, unggah ulang melalui composer media. Tampilan pesan interaktif bergantung pada dukungan aplikasi WhatsApp penerima.
+
+Klik berulang dengan `request_id` sama tidak mengirim ulang pesan. Timeout dicatat sebagai hasil belum pasti; periksa WhatsApp sebelum membuat permintaan baru. Status `sent` berarti Neonize menerima pengiriman, bukan bukti pesan sudah dibaca penerima.
+
+### Konversi JID ↔ LID
+
+Di `/crm`, pilih perangkat online dan isi nomor/JID `@s.whatsapp.net` untuk mendapatkan `@lid`, atau isi `@lid` untuk mendapatkan JID nomor. Konversi memakai `get_lid_from_pn` / `get_pn_from_lid` Neonize dari mapping store perangkat tersebut. Identitas LID tidak dihitung dari nomor. Mapping yang belum tersedia menghasilkan pesan error; gunakan perangkat yang pernah berinteraksi dengan kontak tersebut.
+
+### Endpoint dashboard CRM
+
+Endpoint berikut memakai **cookie login dashboard** dan pemeriksaan origin. API key saja tidak dapat mengakses koleksi CRM.
+
+| Method | URL | Isi / fungsi |
+| --- | --- | --- |
+| GET | `/api/web/crm/config` | Owner tambahan dan nomor perangkat akun |
+| POST | `/api/web/crm/config` | `{"owners":["62812xxxxxxxx"]}`; `[]` mencabut owner tambahan |
+| GET | `/api/web/crm/items?kind=action&page=1` | Daftar tersimpan/aksi, 20 per halaman; `kind` opsional |
+| POST | `/api/web/crm/items` | `{"name":"Halo","kind":"saved","payload":{"conversation":"Halo"}}` |
+| GET | `/api/web/crm/items/{id}` | JSON dan metadata koleksi milik akun |
+| DELETE | `/api/web/crm/items/{id}` | Hapus koleksi milik akun |
+| POST | `/api/web/crm/items/{id}/action` | Tambah salinan ke koleksi aksi, body `{}` |
+| POST | `/api/web/crm/items/{id}/run` | `{"phone":"62812xxxxxxxx","to":"120363xxxxxxxx@g.us","request_id":"id-unik-minimal-8-karakter"}` |
+| POST | `/api/web/convert-jid` | `{"phone":"62812xxxxxxxx","jid":"123456789123@lid"}` |
+
+Untuk integrasi API key, endpoint konversi yang sudah tersedia tetap dapat digunakan: `GET /api/convert-jid?phone=<perangkat>&jid=<jid>`. Raw JSON yang disimpan adalah isi objek `Message`, bukan envelope event Neonize (`Info`, `Message`, dll.).
 
 ## Bot CS bertingkat
 

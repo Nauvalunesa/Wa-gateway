@@ -39,12 +39,21 @@ Import model, builder, atau service tidak menjalankan factory aplikasi maupun me
 | `services/customer_service.py` | Konfigurasi bot CS, navigasi, deduplikasi, state per chat, jeda admin |
 | `messages/cs_models.py` | Validasi halaman, tombol, target, perangkat, dan konfigurasi CS |
 | `messages/cs.py` | Builder balasan CS menjadi native buttons/list, legacy buttons, atau teks |
+| `messages/crm_models.py` | Validasi protobuf JSON, owner tambahan, request replay dan konversi |
+| `services/crm.py` | SQLite raw message per akun, draft 15 menit, koleksi, klaim replay idempotent |
+| `services/crm_access.py` | Daftar owner per akun dan pemeriksaan identitas PN/LID |
+| `services/crm_bot.py` | Perintah reply + crm, JSON privat, tombol jalankan/simpan/aksi |
+| `services/crm_send.py` | Replay protobuf ke JID valid, status pengiriman, timeout tanpa retry otomatis |
+| `services/jid_conversion.py` | Mapping dua arah PN/LID melalui store Neonize perangkat aktif |
+| `routes/crm.py` | CRUD, akses owner, replay dan konversi untuk cookie dashboard |
 
 `routes/` berisi modul `devices`, `messages`, `interactive`, `airich`, `groups`, `newsletters`, `status`, `utilities`, `uploads`, `blast`, `customer_service`, dan `dashboard`. Setiap router API mempunyai `router = APIRouter()`. Dashboard mendaftarkan endpoint cookie, middleware origin, dan halaman SPA melalui `register_dashboard(app)`.
 
 Event pesan masuk memanggil Bot CS terlebih dahulu. Jika chat dimiliki alur CS atau sedang dijeda untuk admin, handler mengembalikan `True` sehingga Auto Reply AI Rich tidak membalas bersamaan. Bot yang dinonaktifkan atau pesan di luar cakupannya mengembalikan `False`, kemudian aturan lama diproses. Builder protobuf dan navigator yang sama dipakai simulator dashboard; preview tidak mengirim pesan dan tidak mengubah state percakapan nyata.
 
 ## Aturan dependensi
+
+Event pesan memeriksa perintah CRM sebelum pemisahan incoming/outgoing. CRM mengizinkan nomor perangkat sendiri (`from_me`) atau sender PN/LID yang cocok dengan owner tambahan akun. Owner tambahan tidak memperoleh akses dashboard atau API key. Hasil JSON dikirim privat ke owner yang meminta. Draft terikat pada perangkat serta identitas owner; replay hanya memanggil `send_message` dengan protobuf tervalidasi. Setiap klaim replay memakai transaksi SQLite agar request bersamaan tidak mengirim dua kali. Koleksi dan konfigurasi CRM tersimpan setelah restart.
 
 - Entry point mengimpor aplikasi; aplikasi menyusun router dan lifecycle.
 - Router mengimpor model, autentikasi, database, layanan, serta helper WhatsApp.

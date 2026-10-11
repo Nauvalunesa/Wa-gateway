@@ -13,6 +13,7 @@ from gateway.routes import (
     airich,
     blast,
     customer_service,
+    crm,
     devices,
     groups,
     interactive,
@@ -52,7 +53,7 @@ def create_app() -> FastAPI:
     )
     application.mount("/static", StaticFiles(directory="static"), name="static")
     for module in (
-        uploads, blast, customer_service, profile, ping, devices, groups, messages, newsletters,
+        uploads, blast, customer_service, crm, profile, ping, devices, groups, messages, newsletters,
         interactive, airich, status, utilities,
     ):
         application.include_router(module.router)
