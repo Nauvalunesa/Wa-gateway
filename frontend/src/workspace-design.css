@@ -209,3 +209,31 @@
   .welcome-meta { font-size: 10px; margin-bottom: 20px; }
   :root[data-theme] .theme-toggle { padding: 8px; }
 }
+.neonize-tools-grid { align-items: start; }
+.neonize-tools-fields { margin-bottom: 2px; }
+.neonize-duration-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 12px; }
+.neonize-duration-row .field { margin-bottom: 16px; }
+.neonize-duration-row>.btn { margin-bottom: 16px; }
+.neonize-tools-preview { align-self: start; }
+.neonize-ad-preview { display: grid; gap: 11px; max-width: 480px; margin: 4px auto 0; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-soft); color: var(--ink); overflow-wrap: anywhere; }
+.neonize-ad-preview>img { width: 100%; max-height: 240px; object-fit: cover; border-radius: 11px; background: var(--surface); }
+.neonize-ad-preview>strong { font-size: 17px; line-height: 1.4; }
+.neonize-ad-preview>p { white-space: pre-wrap; font-size: 13px; color: var(--ink-secondary); }
+.neonize-ad-preview>small,.neonize-ad-preview>code { color: var(--muted); font-size: 10px; }
+.neonize-ad-label { display: flex; align-items: center; gap: 7px; color: var(--accent-ink); font-size: 11px; font-weight: 650; }
+.neonize-ad-preview>span { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--accent-ink); font-size: 12px; font-weight: 650; }
+.neonize-text-preview { display: grid; gap: 12px; margin-top: 8px; padding: 18px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface-soft); color: var(--ink); }
+.neonize-text-preview>span { color: var(--accent-ink); font-size: 9px; font-weight: 700; letter-spacing: 1.3px; }
+.neonize-text-preview>p { min-height: 50px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
+.neonize-text-preview>small { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
+.neonize-request { margin-top: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); color: var(--ink-secondary); font-size: 12px; }
+.neonize-request summary { padding: 13px 15px; cursor: pointer; font-weight: 600; }
+.neonize-request>div { padding: 0 15px 15px; }
+.neonize-request code { display: block; padding: 10px; border-radius: 8px; background: var(--surface); overflow-wrap: anywhere; }
+.neonize-request pre { max-height: 260px; overflow: auto; padding: 12px; border-radius: 8px; background: var(--surface); font-size: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.neonize-request small { color: var(--muted); }
+@media(max-width:600px) {
+  .neonize-duration-row { grid-template-columns: 1fr; gap: 0; }
+  .neonize-duration-row>.btn { width: 100%; margin-top: -8px; }
+  .neonize-ad-preview { padding: 13px; }
+}
