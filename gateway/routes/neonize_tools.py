@@ -11,6 +11,7 @@ from gateway.security import dashboard_user
 from gateway.services.neonize_tools import (
     build_ad_message,
     build_after_read_message,
+    download_ad_thumbnail,
     get_settings,
     save_settings,
 )
@@ -34,12 +35,12 @@ class ToolSettings(BaseModel):
 class AdSend(BaseModel):
     phone: str = Field(min_length=7, max_length=20)
     to: str = Field(min_length=1, max_length=180)
+    text: str = Field(min_length=1, max_length=4000)
     title: str = Field(default="Utusan", min_length=1, max_length=80)
     advertiser: str = Field(default="Utusan.chat", max_length=80)
     image_url: str = Field(default="", max_length=2000)
     source_url: str = Field(min_length=8, max_length=2000)
     source_app: str = Field(default="Utusan.chat", min_length=1, max_length=80)
-    button_label: str = Field(default="Kunjungi website", min_length=1, max_length=25)
 
     @field_validator("image_url", "source_url")
     @classmethod
@@ -49,6 +50,14 @@ class AdSend(BaseModel):
         parsed = urlsplit(value)
         if parsed.scheme != "https" or not parsed.netloc:
             raise ValueError("URL harus menggunakan https://")
+        return value
+
+    @field_validator("text")
+    @classmethod
+    def validate_ad_text(cls, value: str):
+        value = value.strip()
+        if not value:
+            raise ValueError("Isi teks iklan terlebih dahulu.")
         return value
 
 
@@ -167,13 +176,15 @@ async def send_ad(data: AdSend, username: str = Depends(dashboard_user)):
         target = await get_actual_jid(client, data.to.strip())
         if target.Server not in {"s.whatsapp.net", "lid", "g.us"}:
             raise HTTPException(422, "Iklan interaktif hanya dapat dikirim ke chat atau grup.")
+        thumbnail = await asyncio.to_thread(download_ad_thumbnail, data.image_url.strip())
         message = build_ad_message(
+            text=data.text,
+            thumbnail=thumbnail,
             title=data.title.strip(),
             advertiser=data.advertiser.strip(),
             image_url=data.image_url.strip(),
             source_url=data.source_url.strip(),
             source_app=data.source_app.strip(),
-            button_label=data.button_label.strip(),
         )
         await client.send_message(target, message)
         await log_message(username, f"DEVICE({phone})", data.to, f"[AD INTERACTIVE] {data.title}", "OUTGOING")

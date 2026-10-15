@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { ExternalLink, Eye, Megaphone, MessageCircle, Send, Shield, Timer, Users, Zap } from 'lucide-react'
+import { Eye, MessageCircle, Send, Shield, Timer, Users, Zap } from 'lucide-react'
 import { api, post, query, useResource, type Device } from './api'
 import { Button, Card, CardTitle, DeviceSelect, ErrorBox, Field, Heading, ResponseBox, useToast } from './components'
 import { MessageTypeTabs } from './MessageTypeTabs'
@@ -31,13 +31,12 @@ export function NeonizeToolsPage() {
   const [phone, setPhone] = useState('')
   const [to, setTo] = useState('')
   const [text, setText] = useState('')
-  const [adDraftText, setAdDraftText] = useState('')
+  const [adMessageText, setAdMessageText] = useState('')
   const [title, setTitle] = useState('Utusan')
   const [advertiser, setAdvertiser] = useState('Utusan.chat')
   const [sourceApp, setSourceApp] = useState('Utusan.chat')
   const [sourceUrl, setSourceUrl] = useState('https://utusan.chat')
   const [imageUrl, setImageUrl] = useState('')
-  const [buttonLabel, setButtonLabel] = useState('Kunjungi website')
   const [duration, setDuration] = useState('60')
   const [recipients, setRecipients] = useState('')
   const [sprTargetMessage, setSprTargetMessage] = useState('')
@@ -117,13 +116,13 @@ export function NeonizeToolsPage() {
   const adPayload = useMemo(() => ({
     phone,
     to: target,
+    text: adMessageText,
     title,
     advertiser,
     image_url: imageUrl,
     source_url: sourceUrl,
     source_app: sourceApp,
-    button_label: buttonLabel,
-  }), [phone, target, title, advertiser, imageUrl, sourceUrl, sourceApp, buttonLabel])
+  }), [phone, target, adMessageText, title, advertiser, imageUrl, sourceUrl, sourceApp])
 
   const recipientList = [...new Set([
     ...selectedRecipients,
@@ -263,12 +262,11 @@ export function NeonizeToolsPage() {
               <Field label="Judul kartu"><input value={title} onChange={event => setTitle(event.target.value)} maxLength={80} required /></Field>
               <Field label="Nama brand / pengiklan"><input value={advertiser} onChange={event => setAdvertiser(event.target.value)} maxLength={80} /></Field>
               <Field label="Nama aplikasi sumber"><input value={sourceApp} onChange={event => setSourceApp(event.target.value)} maxLength={80} /></Field>
-              <Field label="Teks tombol"><input value={buttonLabel} onChange={event => setButtonLabel(event.target.value)} maxLength={25} required /></Field>
             </div>
-            <Field label="URL tujuan tombol" hint="Harus URL HTTPS."><input type="url" value={sourceUrl} onChange={event => setSourceUrl(event.target.value)} placeholder="https://contoh.com" required /></Field>
+            <Field label="URL tujuan iklan" hint="Dibuka saat penerima menekan kartu; label aksi mengikuti WhatsApp."><input type="url" value={sourceUrl} onChange={event => setSourceUrl(event.target.value)} placeholder="https://contoh.com" required /></Field>
             <Field label="URL gambar pratinjau (opsional)" hint="Gambar dimuat oleh WhatsApp dari URL ini."><input type="url" value={imageUrl} onChange={event => setImageUrl(event.target.value)} placeholder="https://contoh.com/gambar.jpg" /></Field>
-            <Field label="Teks pesan" hint="Untuk draf di halaman ini saja; tidak dikirim ke WhatsApp bersama kartu iklan.">
-              <textarea value={adDraftText} onChange={event => setAdDraftText(event.target.value)} rows={4} maxLength={4000} placeholder="Tulis pesan untuk catatan…" />
+            <Field label="Teks pesan" hint="Tampil di isi kartu iklan, bukan sebagai pesan terpisah.">
+              <textarea value={adMessageText} onChange={event => setAdMessageText(event.target.value)} rows={4} maxLength={4000} placeholder="Tulis isi iklan atau pengumuman…" required />
             </Field>
           </>}
 
@@ -310,12 +308,13 @@ export function NeonizeToolsPage() {
         {tool === 'ad' ? <Card className="neonize-ad-card">
           <CardTitle title="Pratinjau iklan" subtitle="Ilustrasi kartu; tampilan akhir mengikuti WhatsApp penerima." />
           <div className="neonize-ad-preview">
-            <div className="neonize-ad-label"><Megaphone size={14} />{advertiser || 'Nama brand'}</div>
             {safeImageUrl(imageUrl) && <img src={safeImageUrl(imageUrl)} alt="Pratinjau iklan" />}
             <strong>{title || 'Judul kartu'}</strong>
-            <small>{sourceApp || 'Aplikasi sumber'} · Pratinjau tautan</small>
-            <span><ExternalLink size={15} />{buttonLabel || 'Kunjungi website'}</span>
-            <code>{sourceUrl || 'https://contoh.com'}</code>
+            <small>Lihat detail</small>
+            <p>
+              {adMessageText || 'Teks pesan iklan tampil di sini.'}
+            </p>
+            <small>Salam otomatis</small>
           </div>
         </Card> : tool === 'spr' ? <Card>
           <CardTitle title="Pratinjau SPR grup" subtitle="Target melihat A; anggota lain melihat B melalui alur retry." />
@@ -327,7 +326,7 @@ export function NeonizeToolsPage() {
           <CardTitle title={tool === 'after-read' ? 'Pratinjau pesan' : 'Tujuan DM'} subtitle={tool === 'after-read' ? 'Metadata akan dikirim bersama isi pesan.' : 'Fitur ini mengirim DM biasa kepada anggota yang dipilih.'} />
           <div className="neonize-text-preview"><span>{tool === 'after-read' ? 'PESAN SETELAH DIBACA' : 'CHAT LANGSUNG'}</span><p>{text || (tool === 'after-read' ? 'Isi pesan tampil di sini.' : 'Isi balasan tampil di sini.')}</p>{tool === 'after-read' && <small><Timer size={13} /> Durasi: {duration || 0} detik</small>}{tool === 'private-reply' && <small><MessageCircle size={13} /> {recipientList.length} penerima · dikirim sebagai DM biasa</small>}{tool === 'after-read' && <small><MessageCircle size={13} /> Tujuan: {destination === 'group' ? groups.find(group => group.jid === groupJid)?.name || 'Pilih grup' : to || 'Pilih nomor'}</small>}</div>
         </Card>}
-        <div className="small-tip"><Zap size={18} /><div><strong>Fitur memakai protobuf Neonize.</strong><p>{tool === 'spr' ? sprCapability?.supported ? sprCapability.connected ? 'Transport khusus Neonize aktif; target dan decoy akan dikirim sebagai satu fitur SPR grup.' : 'Transport SPR ada, sambungkan perangkat WhatsApp untuk mengirim.' : 'Pesan A/B dan daftar target sudah disiapkan. Pengiriman menunggu dukungan transport SPR pada Neonize yang terpasang.' : 'Pesan interaktif memakai tombol CTA URL. Pengiriman biasa tetap tersedia di halaman Kirim pesan.'}</p></div></div>
+        <div className="small-tip"><Zap size={18} /><div><strong>Fitur memakai protobuf Neonize.</strong><p>{tool === 'spr' ? sprCapability?.supported ? sprCapability.connected ? 'Transport khusus Neonize aktif; target dan decoy akan dikirim sebagai satu fitur SPR grup.' : 'Transport SPR ada, sambungkan perangkat WhatsApp untuk mengirim.' : 'Pesan A/B dan daftar target sudah disiapkan. Pengiriman menunggu dukungan transport SPR pada Neonize yang terpasang.' : tool === 'ad' ? 'Caption dan pratinjau iklan dikirim sebagai satu pesan. Tautan dibuka dari kartu WhatsApp.' : 'Pengiriman biasa tetap tersedia di halaman Kirim pesan.'}</p></div></div>
       </aside>
     </div>
   </>

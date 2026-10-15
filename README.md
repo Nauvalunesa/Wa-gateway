@@ -571,7 +571,7 @@ Buka `/neonize-tools` setelah login. Fitur memakai cookie sesi dashboard dan per
 
 | Fitur | Perilaku |
 | --- | --- |
-| Iklan interaktif | Mengirim kartu iklan CTA URL dengan judul, brand, tombol, dan gambar pratinjau opsional. Kartu dikirim tanpa pesan teks terpisah. Tujuan dapat berupa chat atau grup. |
+| Iklan interaktif | Mengirim satu pesan `ExternalAdReply` dengan caption di dalam kartu, pratinjau gambar opsional, dan tautan yang dibuka dari kartu WhatsApp. Tidak membuat pesan CTA kedua. Tujuan dapat berupa chat atau grup. |
 | Pesan setelah dibaca | Mengirim teks ke chat atau grup dengan metadata dan durasi yang dipilih. Perilaku akhirnya mengikuti dukungan WhatsApp penerima. |
 | DM anggota grup | Memilih anggota dari daftar grup, lalu mengirim pesan sebagai chat pribadi terpisah. Bukan pesan tersembunyi di grup; maksimal 25 penerima. |
 | SPR grup A/B | Memilih grup dan anggota target. Target menerima pesan A; anggota lain menerima teks B melalui alur retry SPR. Fitur memerlukan transport native Neonize yang mendukung SPR. |
@@ -585,7 +585,7 @@ Endpoint berikut hanya menerima sesi login dashboard dengan cookie:
 | GET / PUT | `/api/web/neonize-tools/settings` | `ephemeral_default_seconds` untuk durasi bawaan |
 | GET | `/api/web/neonize-tools/group-participants` | Query `phone`, `group_jid` |
 | GET | `/api/web/neonize-tools/spr/capabilities` | Query `phone`; status dukungan runtime dan perangkat |
-| POST | `/api/web/neonize-tools/ad` | `phone`, `to`, `title`, `advertiser`, `source_url`, `button_label`, opsional `image_url` |
+| POST | `/api/web/neonize-tools/ad` | `phone`, `to`, `text`, `source_url`; opsional `title`, `advertiser`, `source_app`, `image_url` |
 | POST | `/api/web/neonize-tools/after-read` | `phone`, `to`, `text`, `duration_seconds` |
 | POST | `/api/web/neonize-tools/private-reply` | `phone`, `recipients`, `text` |
 | POST | `/api/web/neonize-tools/spr` | `phone`, `group_jid`, `target_jids`, `target_message`, `decoy_message` |
@@ -597,7 +597,7 @@ curl -X POST 'https://utusan.chat/api/web/neonize-tools/ad' \
   -H 'Origin: https://utusan.chat' \
   -H 'Content-Type: application/json' \
   -H 'Cookie: session=COOKIE_LOGIN_ANDA' \
-  --data-raw '{"phone":"62812xxxxxxxx","to":"62813xxxxxxxx","title":"Informasi produk","advertiser":"Utusan.chat","image_url":"https://example.com/produk.jpg","source_url":"https://utusan.chat","source_app":"Utusan.chat","button_label":"Kunjungi website"}'
+  --data-raw '{"phone":"62812xxxxxxxx","to":"62813xxxxxxxx","text":"Nikmati promo produk minggu ini.","title":"Informasi produk","advertiser":"Utusan.chat","image_url":"https://example.com/produk.jpg","source_url":"https://utusan.chat","source_app":"Utusan.chat"}'
 
 curl -X POST 'https://utusan.chat/api/web/neonize-tools/after-read' \
   -H 'Origin: https://utusan.chat' \

@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 import base64
+import ipaddress
 import json
 import os
 import secrets
+import socket
 import time
+from io import BytesIO
 from pathlib import Path
+from urllib.parse import urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from neonize.proto.waE2E.WAWebProtobufsE2E_pb2 import (
     ContextInfo,
     DisappearingMode,
     ExtendedTextMessage,
-    InteractiveMessage,
     Message,
 )
 
@@ -44,16 +48,69 @@ def save_settings(username: str, ephemeral_default_seconds: int) -> dict[str, in
     return {"ephemeral_default_seconds": duration}
 
 
+def _is_public_https_url(url: str) -> bool:
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        return False
+    try:
+        addresses = {
+            ipaddress.ip_address(item[4][0])
+            for item in socket.getaddrinfo(
+                parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM
+            )
+        }
+    except (OSError, ValueError):
+        return False
+    return bool(addresses) and all(address.is_global for address in addresses)
+
+
+class _PublicImageRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+        if not _is_public_https_url(new_url):
+            return None
+        return super().redirect_request(request, file_pointer, code, message, headers, new_url)
+
+
+def download_ad_thumbnail(url: str, timeout: float = 8.0) -> bytes | None:
+    """Fetch and downsize a public image for WhatsApp's inline ad thumbnail."""
+    if not url or not _is_public_https_url(url):
+        return None
+    request = Request(url, headers={"User-Agent": "Utusan-WaGateway/ad-preview"})
+    try:
+        with build_opener(_PublicImageRedirectHandler()).open(request, timeout=timeout) as response:
+            if not _is_public_https_url(response.geturl()):
+                return None
+            if int(response.headers.get("Content-Length", "0") or 0) > 5_000_000:
+                return None
+            data = response.read(5_000_001)
+        if len(data) > 5_000_000:
+            return None
+        from PIL import Image
+
+        with Image.open(BytesIO(data)) as image:
+            if image.width * image.height > 40_000_000:
+                return None
+            image = image.convert("RGB")
+            image.thumbnail((200, 200), Image.Resampling.LANCZOS)
+            output = BytesIO()
+            image.save(output, format="JPEG", quality=40, optimize=True)
+            return output.getvalue()
+    except Exception:
+        return None
+
+
 def build_ad_message(
     *,
+    text: str = "",
+    thumbnail: bytes | None = None,
     title: str,
     advertiser: str,
     image_url: str,
     source_url: str,
     source_app: str,
-    button_label: str,
 ) -> Message:
-    """Build an ad-only CTA-URL interactive protobuf, without message text."""
+    """Build one ad-preview message with its caption, without a second CTA bubble."""
+    caption = text.strip()
     ad = ContextInfo.ExternalAdReplyInfo(
         title=title,
         body=advertiser,
@@ -64,7 +121,7 @@ def build_ad_message(
         sourceType="ad",
         sourceID=str(secrets.randbelow(100_000_000_000_000)),
         sourceURL=source_url,
-        containsAutoReply=False,
+        containsAutoReply=True,
         renderLargerThumbnail=True,
         showAdAttribution=True,
         ctwaClid=base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
@@ -72,30 +129,17 @@ def build_ad_message(
         clickToWhatsappCall=True,
         adContextPreviewDismissed=False,
         sourceApp=source_app,
+        automatedGreetingMessageShown=True,
+        greetingMessageBody=caption,
     )
-    button_params = {
-        "display_text": button_label,
-        "url": source_url,
-        "merchant_url": source_url,
-    }
-    interactive = InteractiveMessage(
-        # Native-flow messages must carry the standard interactive envelope.
-        # Keep the body and footer empty so this remains an ad card only.
-        header=InteractiveMessage.Header(),
-        body=InteractiveMessage.Body(text=""),
-        footer=InteractiveMessage.Footer(text=""),
-        nativeFlowMessage=InteractiveMessage.NativeFlowMessage(
-            buttons=[
-                InteractiveMessage.NativeFlowMessage.NativeFlowButton(
-                    name="cta_url",
-                    buttonParamsJSON=json.dumps(button_params, ensure_ascii=False),
-                )
-            ],
-            messageVersion=1,
-        ),
-        contextInfo=ContextInfo(externalAdReply=ad),
+    if thumbnail:
+        ad.thumbnail = thumbnail
+    return Message(
+        extendedTextMessage=ExtendedTextMessage(
+            text=caption,
+            contextInfo=ContextInfo(externalAdReply=ad),
+        )
     )
-    return Message(interactiveMessage=interactive)
 
 
 def build_after_read_message(text: str, duration_seconds: int) -> Message:
