@@ -7,25 +7,30 @@ import threading
 from neonize.aioze.client import GoCode, NewAClient, gocode
 
 
-async def native_thread_call(function, *args, poll_interval=0.05):
-    finished = threading.Event()
-    outcome = []
+async def native_thread_call(function, *args):
+    loop = asyncio.get_running_loop()
+    result = loop.create_future()
+
+    def complete(value, error):
+        if result.done():
+            return
+        if error is None:
+            result.set_result(value)
+        else:
+            result.set_exception(error)
 
     def run():
         try:
-            outcome.append((True, function(*args)))
-        except BaseException as exc:
-            outcome.append((False, exc))
-        finally:
-            finished.set()
+            value, error = function(*args), None
+        except Exception as exc:
+            value, error = None, exc
+        try:
+            loop.call_soon_threadsafe(complete, value, error)
+        except RuntimeError:
+            pass  # The loop has already closed during process shutdown.
 
     threading.Thread(target=run, name="neonize-native", daemon=True).start()
-    while not finished.is_set():
-        await asyncio.sleep(poll_interval)
-    succeeded, value = outcome[0]
-    if succeeded:
-        return value
-    raise value
+    return await result
 
 
 class ConnectionGoCode(GoCode):
@@ -35,7 +40,7 @@ class ConnectionGoCode(GoCode):
     async def Neonize(self, *args):
         # This FFI call lives for the entire WhatsApp session. One session must
         # not consume a shared worker needed by PairPhone or other API calls.
-        return await native_thread_call(self.native.Neonize, *args, poll_interval=0.5)
+        return await native_thread_call(self.native.Neonize, *args)
 
     async def Stop(self, *args):
         # Cleanup must work even when unrelated shared workers are busy.
@@ -45,8 +50,7 @@ class ConnectionGoCode(GoCode):
         return await native_thread_call(self.native.Disconnect, *args)
 
     async def SendSPRMessage(self, *args):
-        # SPR uses a blocking native FFI call that must not wait behind other
-        # default-executor jobs while this long-lived WhatsApp connection runs.
+        # Keep SPR's blocking FFI call off asyncio's shared worker pool too.
         return await native_thread_call(self.native.SendSPRMessage, *args)
 
 
