@@ -109,7 +109,7 @@ def build_ad_message(
     source_url: str,
     source_app: str,
 ) -> Message:
-    """Build one ad-preview message with its caption, without auto-reply text."""
+    """Build one ad-preview message with its caption, without a second CTA bubble."""
     caption = text.strip()
     ad = ContextInfo.ExternalAdReplyInfo(
         title=title,
@@ -121,6 +121,7 @@ def build_ad_message(
         sourceType="ad",
         sourceID=str(secrets.randbelow(100_000_000_000_000)),
         sourceURL=source_url,
+        containsAutoReply=True,
         renderLargerThumbnail=True,
         showAdAttribution=True,
         ctwaClid=base64.b64encode(secrets.token_bytes(32)).decode("ascii"),
@@ -128,6 +129,8 @@ def build_ad_message(
         clickToWhatsappCall=True,
         adContextPreviewDismissed=False,
         sourceApp=source_app,
+        automatedGreetingMessageShown=True,
+        greetingMessageBody=caption,
     )
     if thumbnail:
         ad.thumbnail = thumbnail

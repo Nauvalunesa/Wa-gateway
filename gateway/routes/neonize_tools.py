@@ -188,7 +188,7 @@ async def send_ad(data: AdSend, username: str = Depends(dashboard_user)):
         )
         await client.send_message(target, message)
         await log_message(username, f"DEVICE({phone})", data.to, f"[AD INTERACTIVE] {data.title}", "OUTGOING")
-        return {"success": True, "device": phone, "to": data.to, "message": "Satu pesan iklan dikirim."}
+        return {"success": True, "device": phone, "to": data.to, "message": "Iklan interaktif dikirim."}
     except HTTPException:
         raise
     except Exception as exc:

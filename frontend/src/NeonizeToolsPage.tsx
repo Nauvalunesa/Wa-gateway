@@ -142,7 +142,7 @@ export function NeonizeToolsPage() {
 
   async function sendAd(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(''); setResult(null)
-    try { const response = await post<Result>('/api/web/neonize-tools/ad', adPayload); setResult(response); notify('Satu pesan iklan dikirim.') }
+    try { const response = await post<Result>('/api/web/neonize-tools/ad', adPayload); setResult(response); notify('Iklan interaktif dikirim.') }
     catch (cause) { setError((cause as Error).message) } finally { setBusy(false) }
   }
 
@@ -265,7 +265,7 @@ export function NeonizeToolsPage() {
             </div>
             <Field label="URL tujuan iklan" hint="Dibuka saat penerima menekan kartu; label aksi mengikuti WhatsApp."><input type="url" value={sourceUrl} onChange={event => setSourceUrl(event.target.value)} placeholder="https://contoh.com" required /></Field>
             <Field label="URL gambar pratinjau (opsional)" hint="Gambar dimuat oleh WhatsApp dari URL ini."><input type="url" value={imageUrl} onChange={event => setImageUrl(event.target.value)} placeholder="https://contoh.com/gambar.jpg" /></Field>
-            <Field label="Teks di dalam iklan" hint="Dikirim sekali sebagai isi kartu iklan dalam satu pesan.">
+            <Field label="Teks pesan" hint="Tampil di isi kartu iklan, bukan sebagai pesan terpisah.">
               <textarea value={adMessageText} onChange={event => setAdMessageText(event.target.value)} rows={4} maxLength={4000} placeholder="Tulis isi iklan atau pengumuman…" required />
             </Field>
           </>}
@@ -295,7 +295,7 @@ export function NeonizeToolsPage() {
 
           {tool === 'private-reply' && <div className="small-tip"><MessageCircle size={18} /><div><strong>Pesan privat biasa.</strong><p>Setiap penerima mendapat chat langsung. Fitur ini tidak menyisipkan pesan tersembunyi ke dalam grup.</p></div></div>}
           <ErrorBox error={error} />
-          <Button type="submit" busy={busy} disabled={!phone || (tool === 'private-reply' && !recipientList.length) || (tool === 'spr' && (!sprCapability?.supported || !sprCapability.connected || !groupJid || !selectedRecipients.length))}><Send size={16} />{tool === 'ad' ? 'Kirim satu iklan' : tool === 'after-read' ? 'Kirim pesan sementara' : tool === 'spr' ? 'Kirim SPR ke grup' : 'Kirim ke penerima terpilih'}</Button>
+          <Button type="submit" busy={busy} disabled={!phone || (tool === 'private-reply' && !recipientList.length) || (tool === 'spr' && (!sprCapability?.supported || !sprCapability.connected || !groupJid || !selectedRecipients.length))}><Send size={16} />{tool === 'ad' ? 'Kirim iklan interaktif' : tool === 'after-read' ? 'Kirim pesan sementara' : tool === 'spr' ? 'Kirim SPR ke grup' : 'Kirim ke penerima terpilih'}</Button>
         </form>
         <ResponseBox result={result} />
         <details className="neonize-request">
@@ -314,6 +314,7 @@ export function NeonizeToolsPage() {
             <p>
               {adMessageText || 'Teks pesan iklan tampil di sini.'}
             </p>
+            <small>Salam otomatis</small>
           </div>
         </Card> : tool === 'spr' ? <Card>
           <CardTitle title="Pratinjau SPR grup" subtitle="Target melihat A; anggota lain melihat B melalui alur retry." />
