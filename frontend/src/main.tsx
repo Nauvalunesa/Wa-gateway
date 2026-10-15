@@ -1,0 +1,10 @@
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import '@fontsource-variable/inter'
+import './style.css'
+import './light-theme.css'
+import './workspace-design.css'
+import { BrowserRouter } from 'react-router-dom'
+import { App } from './App'
+document.documentElement.dataset.theme = localStorage.getItem('utusan-theme') || 'light'
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><BrowserRouter><App/></BrowserRouter></React.StrictMode>)

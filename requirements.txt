@@ -1,13 +1,15 @@
 fastapi
 uvicorn
 aiosqlite
-neonize
+neonize @ git+https://github.com/Nauvalunesa/neonize.git@596d5ac327f176a70472147f96d4dd674c67911c
 pydantic
-jinja2
 python-multipart
 starlette
 itsdangerous
-protobuf
+protobuf>=6.32.1,<8
+pillow>=12,<13
 # Optional but often used with FastAPI/Neonize
 python-dotenv
 aiohttp
+passlib
+bcrypt>=3.2,<4

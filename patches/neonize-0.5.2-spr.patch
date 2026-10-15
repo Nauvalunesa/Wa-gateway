@@ -1,0 +1,647 @@
+--- a/goneonize/main.go
++++ b/goneonize/main.go
+@@ -13,6 +13,7 @@
+ 
+ import (
+ 	"context"
++	cryptorand "crypto/rand"
+ 	// "crypto/sha256"
+ 	// "encoding/hex"
+ 	"fmt"
+@@ -529,6 +530,139 @@
+ 	return ProtoReturnV3(&return_)
+ }
+ 
++//export SendSPRMessage
++func SendSPRMessage(id *C.char, groupByte *C.uchar, groupSize C.int, targetsByte *C.uchar, targetsSize C.int, targetText *C.char, decoyText *C.char) *C.struct_BytesReturn {
++	return_ := defproto.SendMessageReturnFunction{}
++	clientID := C.GoString(id)
++	client := clients[clientID]
++	if client == nil {
++		return_.Error = proto.String("client is nil")
++		return ProtoReturnV3(&return_)
++	}
++
++	var groupProto defproto.JID
++	if err := proto.Unmarshal(getByteByAddr(groupByte, groupSize), &groupProto); err != nil {
++		return_.Error = proto.String(err.Error())
++		return ProtoReturnV3(&return_)
++	}
++	group := utils.DecodeJidProto(&groupProto)
++	if group.Server != types.GroupServer || group.User == "" {
++		return_.Error = proto.String("SPR destination must be a WhatsApp group")
++		return ProtoReturnV3(&return_)
++	}
++
++	var targetsProto defproto.JIDArray
++	if err := proto.Unmarshal(getByteByAddr(targetsByte, targetsSize), &targetsProto); err != nil {
++		return_.Error = proto.String(err.Error())
++		return ProtoReturnV3(&return_)
++	}
++	if len(targetsProto.JIDS) == 0 || len(targetsProto.JIDS) > 25 {
++		return_.Error = proto.String("SPR requires between 1 and 25 selected targets")
++		return ProtoReturnV3(&return_)
++	}
++	targetTextValue := strings.TrimSpace(C.GoString(targetText))
++	decoyTextValue := strings.TrimSpace(C.GoString(decoyText))
++	if targetTextValue == "" || decoyTextValue == "" {
++		return_.Error = proto.String("SPR target and decoy messages must not be empty")
++		return ProtoReturnV3(&return_)
++	}
++
++	ctx := context.Background()
++	groupInfo, err := client.GetGroupInfo(ctx, group)
++	if err != nil {
++		return_.Error = proto.String(fmt.Sprintf("failed to verify SPR group members: %v", err))
++		return ProtoReturnV3(&return_)
++	}
++	participants := make([]types.JID, 0, len(targetsProto.JIDS))
++	targetKeys := make([]string, 0, len(targetsProto.JIDS))
++	seenTargets := make(map[string]bool)
++	for _, targetProto := range targetsProto.JIDS {
++		target := utils.DecodeJidProto(targetProto).ToNonAD()
++		if target.User == "" || (target.Server != types.DefaultUserServer && target.Server != types.HiddenUserServer) {
++			return_.Error = proto.String("SPR targets must be individual WhatsApp accounts")
++			return ProtoReturnV3(&return_)
++		}
++		if seenTargets[target.String()] {
++			continue
++		}
++		isMember := false
++		targetAliases := []types.JID{target}
++		for _, member := range groupInfo.Participants {
++			for _, memberJID := range []types.JID{member.JID, member.PhoneNumber, member.LID} {
++				if !memberJID.IsEmpty() && memberJID.ToNonAD() == target {
++					isMember = true
++					targetAliases = append(targetAliases, member.JID, member.PhoneNumber, member.LID)
++					break
++				}
++			}
++			if isMember {
++				break
++			}
++		}
++		if !isMember {
++			return_.Error = proto.String(fmt.Sprintf("SPR target %s is not a member of group %s", target, group))
++			return ProtoReturnV3(&return_)
++		}
++		participants = append(participants, target)
++		for _, alias := range targetAliases {
++			if alias.IsEmpty() {
++				continue
++			}
++			key := alias.ToNonAD().String()
++			if !seenTargets[key] {
++				seenTargets[key] = true
++				targetKeys = append(targetKeys, key)
++			}
++		}
++	}
++	if len(participants) == 0 {
++		return_.Error = proto.String("SPR requires at least one unique target")
++		return ProtoReturnV3(&return_)
++	}
++
++	secret := make([]byte, 32)
++	if _, err := cryptorand.Read(secret); err != nil {
++		return_.Error = proto.String(fmt.Sprintf("failed to generate SPR message secret: %v", err))
++		return ProtoReturnV3(&return_)
++	}
++	storeValue, ok := sprRetryStores.Load(clientID)
++	if !ok {
++		return_.Error = proto.String("SPR retry store is unavailable")
++		return ProtoReturnV3(&return_)
++	}
++	sprStore := storeValue.(*sprRetryStore)
++	messageID := client.GenerateMessageID()
++	if err := sprStore.put(sprRetryMessage{
++		Group:         group.String(),
++		MessageID:     string(messageID),
++		Targets:       targetKeys,
++		TargetMessage: targetTextValue,
++		DecoyMessage:  decoyTextValue,
++	}); err != nil {
++		return_.Error = proto.String(fmt.Sprintf("failed to save SPR retry data: %v", err))
++		return ProtoReturnV3(&return_)
++	}
++
++	message := waE2E.Message{
++		Conversation: proto.String(targetTextValue),
++		MessageContextInfo: &waE2E.MessageContextInfo{
++			MessageSecret: secret,
++		},
++	}
++	extra := whatsmeow.SendRequestExtra{
++		ID:                   messageID,
++		GroupParticipants:    participants,
++		RotateGroupSenderKey: true,
++	}
++	response, err := client.SendMessage(ctx, group, &message, extra)
++	if err != nil {
++		return_.Error = proto.String(err.Error())
++		return ProtoReturnV3(&return_)
++	}
++	return_.SendResponse = utils.EncodeSendResponse(response)
++	return ProtoReturnV3(&return_)
++}
++
+ //export PinMessage
+ func PinMessage(id *C.char, ChatJIDByte *C.uchar, ChatJIDSize C.int, SenderJIDByte *C.uchar, SenderJIDSize C.int, messageID *C.char, seconds C.int) *C.struct_BytesReturn {
+ 	client := clients[C.GoString(id)]
+@@ -591,7 +725,8 @@
+ 
+ //export Stop
+ func Stop(id *C.char) {
+-	utils.Noop.Infof("Stopping client with ID: %s", C.GoString(id)) // utils.Logger
++	utils.Noop.Infof("Stopping client with ID: %s", C.GoString(id))
++	sprRetryStores.Delete(C.GoString(id)) // utils.Logger
+ 	if client, exists := clients[C.GoString(id)]; exists {
+ 		client.Disconnect()
+ 		delete(clients, C.GoString(id))
+@@ -658,6 +793,9 @@
+ 	clientLog := utils.NewLogger("Client", C.GoString(logLevel), utils.Callback(logCb))
+ 	client := whatsmeow.NewClient(deviceStore, clientLog)
+ 	clients[uuid] = client
++	sprStore := newSPRRetryStore(C.GoString(db))
++	sprRetryStores.Store(uuid, sprStore)
++	installSPRRetryHooks(client, sprStore)
+ 	if err := applyProxySettings(client, proxySettingsRaw); err != nil {
+ 		return C.CString(err.Error())
+ 	}
+--- /dev/null
++++ b/goneonize/spr.go
+@@ -0,0 +1,210 @@
++package main
++
++import (
++	"crypto/sha256"
++	"encoding/hex"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++	"sync"
++	"time"
++
++	"go.mau.fi/whatsmeow"
++	"go.mau.fi/whatsmeow/proto/waE2E"
++	"go.mau.fi/whatsmeow/types"
++	"go.mau.fi/whatsmeow/types/events"
++	"google.golang.org/protobuf/proto"
++)
++
++const sprRetryRetention = 72 * time.Hour
++
++var sprRetryStores sync.Map
++
++func installSPRRetryHooks(client *whatsmeow.Client, store *sprRetryStore) {
++	client.GetMessageForRetry = store.messageForRetry
++	client.PreRetryCallback = store.beforeRetry
++}
++
++type sprRetryMessage struct {
++	Group         string    `json:"-"`
++	MessageID     string    `json:"-"`
++	Targets       []string  `json:"targets"`
++	TargetMessage string    `json:"target_message"`
++	DecoyMessage  string    `json:"decoy_message"`
++	ExpiresAt     time.Time `json:"expires_at"`
++	Expired       bool      `json:"expired,omitempty"`
++}
++
++type sprRetryStore struct {
++	mu       sync.Mutex
++	path     string
++	messages map[string]sprRetryMessage
++	loadErr  error
++}
++
++func sprRetryKey(group, id string) string {
++	digest := sha256.Sum256([]byte(group + "\x00" + id))
++	return hex.EncodeToString(digest[:])
++}
++
++func newSPRRetryStore(databaseName string) *sprRetryStore {
++	db := strings.TrimSpace(databaseName)
++	path := db + ".spr.json"
++	switch {
++	case db == "" || db == ":memory:" || strings.HasPrefix(db, "file::memory:"):
++		path = ""
++	case strings.HasPrefix(db, "postgres://") || strings.HasPrefix(db, "postgresql://"):
++		digest := sha256.Sum256([]byte(db))
++		path = filepath.Join("storage", "neonize-spr-"+hex.EncodeToString(digest[:8])+".json")
++	}
++	store := &sprRetryStore{path: path, messages: make(map[string]sprRetryMessage)}
++	if path == "" {
++		return store
++	}
++	data, err := os.ReadFile(path)
++	if err != nil && !errors.Is(err, os.ErrNotExist) {
++		store.loadErr = err
++		return store
++	}
++	if len(data) > 0 {
++		if err := json.Unmarshal(data, &store.messages); err != nil {
++			store.loadErr = fmt.Errorf("invalid SPR retry store %s: %w", path, err)
++		}
++	}
++	if store.pruneLocked(time.Now()) {
++		_ = store.persistLocked()
++	}
++	return store
++}
++
++func (s *sprRetryStore) persistLocked() error {
++	if s.loadErr != nil {
++		return s.loadErr
++	}
++	if s.path == "" {
++		return nil
++	}
++	if err := os.MkdirAll(filepath.Dir(s.path), 0700); err != nil {
++		return err
++	}
++	data, err := json.Marshal(s.messages)
++	if err != nil {
++		return err
++	}
++	tmp := s.path + ".tmp"
++	if err = os.WriteFile(tmp, data, 0600); err != nil {
++		return err
++	}
++	if err = os.Chmod(tmp, 0600); err != nil {
++		_ = os.Remove(tmp)
++		return err
++	}
++	if err = os.Rename(tmp, s.path); err != nil {
++		_ = os.Remove(tmp)
++		return err
++	}
++	return nil
++}
++
++func (s *sprRetryStore) pruneLocked(now time.Time) bool {
++	changed := false
++	for key, message := range s.messages {
++		if message.Expired {
++			continue
++		}
++		if !message.ExpiresAt.After(now) {
++			// Keep a minimal tombstone permanently. A cached original message can
++			// still reach PreRetryCallback after the payload mapping expires; the
++			// tombstone makes that callback cancel instead of replaying message A.
++			message.Targets = nil
++			message.TargetMessage = ""
++			message.DecoyMessage = ""
++			message.ExpiresAt = time.Time{}
++			message.Expired = true
++			s.messages[key] = message
++			changed = true
++		}
++	}
++	return changed
++}
++
++func (s *sprRetryStore) put(message sprRetryMessage) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	if s.loadErr != nil {
++		return s.loadErr
++	}
++	s.pruneLocked(time.Now())
++	message.ExpiresAt = time.Now().Add(sprRetryRetention)
++	s.messages[sprRetryKey(message.Group, message.MessageID)] = message
++	return s.persistLocked()
++}
++
++func (s *sprRetryStore) get(group, id string) (sprRetryMessage, bool) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	if s.loadErr != nil {
++		return sprRetryMessage{}, false
++	}
++	if s.pruneLocked(time.Now()) {
++		_ = s.persistLocked()
++	}
++	message, ok := s.messages[sprRetryKey(group, id)]
++	return message, ok
++}
++
++func sprMessage(text string) *waE2E.Message {
++	return &waE2E.Message{Conversation: proto.String(text)}
++}
++
++func (s *sprRetryStore) messageForRetry(requester, group types.JID, id types.MessageID) *waE2E.Message {
++	entry, ok := s.get(group.String(), string(id))
++	if !ok || entry.Expired {
++		return nil
++	}
++	if sprIsTarget(entry.Targets, requester) {
++		return sprMessage(entry.TargetMessage)
++	}
++	return sprMessage(entry.DecoyMessage)
++}
++
++func (s *sprRetryStore) beforeRetry(receipt *events.Receipt, id types.MessageID, _ int, message *waE2E.Message) bool {
++	if receipt == nil || message == nil || !receipt.IsGroup {
++		return true
++	}
++	entry, ok := s.get(receipt.Chat.String(), string(id))
++	if ok && entry.Expired {
++		return false
++	}
++	if !ok {
++		return true
++	}
++	senderKey := message.SenderKeyDistributionMessage
++	messageContext := message.MessageContextInfo
++	if sprIsTarget(entry.Targets, receipt.Sender, receipt.SenderAlt) {
++		*message = *sprMessage(entry.TargetMessage)
++	} else {
++		*message = *sprMessage(entry.DecoyMessage)
++	}
++	message.SenderKeyDistributionMessage = senderKey
++	message.MessageContextInfo = messageContext
++	return true
++}
++
++func sprIsTarget(targets []string, requesters ...types.JID) bool {
++	for _, requester := range requesters {
++		if requester.IsEmpty() {
++			continue
++		}
++		requesterJID := requester.ToNonAD().String()
++		for _, target := range targets {
++			if target == requesterJID {
++				return true
++			}
++		}
++	}
++	return false
++}
+--- /dev/null
++++ b/goneonize/spr_test.go
+@@ -0,0 +1,132 @@
++package main
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++	"time"
++
++	"go.mau.fi/whatsmeow/proto/waE2E"
++	"go.mau.fi/whatsmeow/types"
++	"go.mau.fi/whatsmeow/types/events"
++	"google.golang.org/protobuf/proto"
++)
++
++func TestSPRRetryReturnsTargetAndDecoyAcrossRestart(t *testing.T) {
++	databasePath := filepath.Join(t.TempDir(), "session.db")
++	store := newSPRRetryStore(databasePath)
++	entry := sprRetryMessage{
++		Group:         "120363000000000000@g.us",
++		MessageID:     "message-1",
++		Targets:       []string{"628123456789@s.whatsapp.net"},
++		TargetMessage: "message A",
++		DecoyMessage:  "message B",
++	}
++	if err := store.put(entry); err != nil {
++		t.Fatal(err)
++	}
++
++	store = newSPRRetryStore(databasePath)
++	group, _ := types.ParseJID(entry.Group)
++	target, _ := types.ParseJID(entry.Targets[0])
++	targetLID, _ := types.ParseJID("123456789012345@lid")
++	other, _ := types.ParseJID("628987654321@s.whatsapp.net")
++	if got := store.messageForRetry(target, group, types.MessageID(entry.MessageID)).GetConversation(); got != entry.TargetMessage {
++		t.Fatalf("target retry = %q, want %q", got, entry.TargetMessage)
++	}
++	entry.Targets = append(entry.Targets, targetLID.String())
++	if err := store.put(entry); err != nil {
++		t.Fatal(err)
++	}
++	if got := store.messageForRetry(targetLID, group, types.MessageID(entry.MessageID)).GetConversation(); got != entry.TargetMessage {
++		t.Fatalf("target LID retry = %q, want %q", got, entry.TargetMessage)
++	}
++	if got := store.messageForRetry(other, group, types.MessageID(entry.MessageID)).GetConversation(); got != entry.DecoyMessage {
++		t.Fatalf("non-target retry = %q, want %q", got, entry.DecoyMessage)
++	}
++
++	stat, err := os.Stat(databasePath + ".spr.json")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if stat.Mode().Perm() != 0o600 {
++		t.Fatalf("retry store permissions = %o, want 600", stat.Mode().Perm())
++	}
++}
++
++func TestSPRPreRetryPreservesSenderKeyAndMessageContext(t *testing.T) {
++	group, _ := types.ParseJID("120363000000000000@g.us")
++	target, _ := types.ParseJID("628123456789@s.whatsapp.net")
++	other, _ := types.ParseJID("628987654321@s.whatsapp.net")
++	targetLID, _ := types.ParseJID("123456789012345@lid")
++	store := &sprRetryStore{messages: make(map[string]sprRetryMessage)}
++	entry := sprRetryMessage{
++		Group:         group.String(),
++		MessageID:     "message-2",
++		Targets:       []string{target.String()},
++		TargetMessage: "message A",
++		DecoyMessage:  "message B",
++	}
++	if err := store.put(entry); err != nil {
++		t.Fatal(err)
++	}
++
++	senderKey := &waE2E.SenderKeyDistributionMessage{GroupID: proto.String(group.String())}
++	messageContext := &waE2E.MessageContextInfo{MessageSecret: []byte("secret")}
++	message := &waE2E.Message{
++		Conversation:                 proto.String("message A"),
++		SenderKeyDistributionMessage: senderKey,
++		MessageContextInfo:           messageContext,
++	}
++	receipt := &events.Receipt{MessageSource: types.MessageSource{Chat: group, Sender: other, IsGroup: true}}
++	if !store.beforeRetry(receipt, types.MessageID(entry.MessageID), 1, message) {
++		t.Fatal("unexpectedly cancelled decoy retry")
++	}
++	if message.GetConversation() != entry.DecoyMessage {
++		t.Fatalf("retry message = %q, want decoy %q", message.GetConversation(), entry.DecoyMessage)
++	}
++	if !proto.Equal(message.GetSenderKeyDistributionMessage(), senderKey) {
++		t.Fatal("decoy retry lost the sender-key distribution message")
++	}
++	if !proto.Equal(message.GetMessageContextInfo(), messageContext) {
++		t.Fatal("decoy retry lost message context")
++	}
++
++	targetMessage := &waE2E.Message{Conversation: proto.String("message B")}
++	targetReceipt := &events.Receipt{MessageSource: types.MessageSource{
++		Chat: group, Sender: targetLID, SenderAlt: target, IsGroup: true,
++	}}
++	if !store.beforeRetry(targetReceipt, types.MessageID(entry.MessageID), 1, targetMessage) {
++		t.Fatal("unexpectedly cancelled target retry")
++	}
++	if targetMessage.GetConversation() != entry.TargetMessage {
++		t.Fatalf("target retry changed to %q", targetMessage.GetConversation())
++	}
++}
++
++func TestExpiredSPRRetryCancelsCachedOriginalAndLeavesTombstone(t *testing.T) {
++	group, _ := types.ParseJID("120363000000000000@g.us")
++	other, _ := types.ParseJID("628987654321@s.whatsapp.net")
++	id := types.MessageID("message-expired")
++	store := &sprRetryStore{messages: map[string]sprRetryMessage{
++		sprRetryKey(group.String(), string(id)): {
++			Targets:       []string{"628123456789@s.whatsapp.net"},
++			TargetMessage: "message A",
++			DecoyMessage:  "message B",
++			ExpiresAt:     time.Now().Add(-time.Second),
++		},
++	}}
++
++	entry, ok := store.get(group.String(), string(id))
++	if !ok || !entry.Expired || entry.TargetMessage != "" || entry.DecoyMessage != "" {
++		t.Fatalf("expired entry not reduced to tombstone: %+v, exists=%t", entry, ok)
++	}
++	if got := store.messageForRetry(other, group, id); got != nil {
++		t.Fatalf("expired retry unexpectedly returned %q", got.GetConversation())
++	}
++	message := &waE2E.Message{Conversation: proto.String("cached original A")}
++	receipt := &events.Receipt{MessageSource: types.MessageSource{Chat: group, Sender: other, IsGroup: true}}
++	if store.beforeRetry(receipt, id, 1, message) {
++		t.Fatal("expired cached original retry was not cancelled")
++	}
++}
+--- a/neonize/_binder.py
++++ b/neonize/_binder.py
+@@ -250,6 +250,16 @@
+         ctypes.c_int,
+     ]
+     gocode.SendMessage.restype = ctypes.POINTER(Bytes)
++    gocode.SendSPRMessage.argtypes = [
++        ctypes.c_char_p,
++        ctypes.c_char_p,
++        ctypes.c_int,
++        ctypes.c_char_p,
++        ctypes.c_int,
++        ctypes.c_char_p,
++        ctypes.c_char_p,
++    ]
++    gocode.SendSPRMessage.restype = ctypes.POINTER(Bytes)
+     gocode.SendChatPresence.argtypes = [
+         ctypes.c_char_p,
+         ctypes.c_char_p,
+@@ -720,6 +730,7 @@
+         "GetGroupInviteLink",
+         "JoinGroupWithLink",
+         "SendMessage",
++        "SendSPRMessage",
+         "BuildRevoke",
+         "CreateGroup",
+         "IsOnWhatsApp",
+--- a/neonize/client.py
++++ b/neonize/client.py
+@@ -692,6 +692,48 @@
+         model.SendResponse.MergeFrom(model.SendResponse.__class__(Message=msg))
+         return model.SendResponse
+ 
++    def send_spr_group(
++        self,
++        group: JID | str,
++        targets: Sequence[JID | str],
++        target_message: str,
++        decoy_message: str,
++    ) -> SendResponse:
++        """Send an experimental SPR group message with a decoy retry body.
++
++        Selected group members receive ``target_message``. Other members may
++        receive ``decoy_message`` if WhatsApp asks the sender to retry the
++        message. This method never falls back to a normal group or DM send.
++        """
++        if isinstance(targets, (str, bytes)) or not 1 <= len(targets) <= 25:
++            raise ValueError("SPR requires between 1 and 25 selected targets")
++        if not isinstance(target_message, str) or not target_message.strip():
++            raise ValueError("SPR target message must not be empty")
++        if not isinstance(decoy_message, str) or not decoy_message.strip():
++            raise ValueError("SPR decoy message must not be empty")
++        if "\x00" in target_message or "\x00" in decoy_message:
++            raise ValueError("SPR messages must not contain NUL characters")
++
++        group_jid = _ensure_jid(group, server="g.us")
++        target_jids = [JIDToNonAD(_ensure_jid(target)) for target in targets]
++        group_bytes = group_jid.SerializeToString()
++        targets_bytes = JIDArray(JIDS=target_jids).SerializeToString()
++        protobytes = self.__client.SendSPRMessage(
++            self.uuid,
++            group_bytes,
++            len(group_bytes),
++            targets_bytes,
++            len(targets_bytes),
++            target_message.encode(),
++            decoy_message.encode(),
++        )
++        model = SendMessageReturnFunction.FromString(protobytes)
++        if model.Error:
++            raise SendMessageError(model.Error)
++        sent_message = Message(conversation=target_message)
++        model.SendResponse.MergeFrom(model.SendResponse.__class__(Message=sent_message))
++        return model.SendResponse
++
+     def build_reply_message(
+         self,
+         message: str | MessageWithContextInfo,
+--- a/neonize/aioze/client.py
++++ b/neonize/aioze/client.py
+@@ -744,6 +744,48 @@
+         model.SendResponse.MergeFrom(model.SendResponse.__class__(Message=msg))
+         return model.SendResponse
+ 
++    async def send_spr_group(
++        self,
++        group: JID | str,
++        targets: Sequence[JID | str],
++        target_message: str,
++        decoy_message: str,
++    ) -> SendResponse:
++        """Send an experimental SPR group message with a decoy retry body.
++
++        Selected group members receive ``target_message``. Other members may
++        receive ``decoy_message`` if WhatsApp asks the sender to retry the
++        message. This method never falls back to a normal group or DM send.
++        """
++        if isinstance(targets, (str, bytes)) or not 1 <= len(targets) <= 25:
++            raise ValueError("SPR requires between 1 and 25 selected targets")
++        if not isinstance(target_message, str) or not target_message.strip():
++            raise ValueError("SPR target message must not be empty")
++        if not isinstance(decoy_message, str) or not decoy_message.strip():
++            raise ValueError("SPR decoy message must not be empty")
++        if "\x00" in target_message or "\x00" in decoy_message:
++            raise ValueError("SPR messages must not contain NUL characters")
++
++        group_jid = _ensure_jid(group, server="g.us")
++        target_jids = [JIDToNonAD(_ensure_jid(target)) for target in targets]
++        group_bytes = group_jid.SerializeToString()
++        targets_bytes = JIDArray(JIDS=target_jids).SerializeToString()
++        protobytes = await self.__client.SendSPRMessage(
++            self.uuid,
++            group_bytes,
++            len(group_bytes),
++            targets_bytes,
++            len(targets_bytes),
++            target_message.encode(),
++            decoy_message.encode(),
++        )
++        model = SendMessageReturnFunction.FromString(protobytes)
++        if model.Error:
++            raise SendMessageError(model.Error)
++        sent_message = Message(conversation=target_message)
++        model.SendResponse.MergeFrom(model.SendResponse.__class__(Message=sent_message))
++        return model.SendResponse
++
+     async def build_reply_message(
+         self,
+         message: str | MessageWithContextInfo,

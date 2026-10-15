@@ -1,0 +1,85 @@
+--- a/send.go
++++ b/send.go
+@@ -22,6 +22,7 @@
+ 
+ 	"github.com/rs/zerolog"
+ 	"go.mau.fi/libsignal/groups"
++	"go.mau.fi/libsignal/groups/state/record"
+ 	"go.mau.fi/libsignal/keys/prekey"
+ 	"go.mau.fi/libsignal/protocol"
+ 	"go.mau.fi/libsignal/session"
+@@ -159,6 +160,11 @@
+ 	Meta *types.MsgMetaInfo
+ 	// use this only if you know what you are doing
+ 	AdditionalNodes *[]waBinary.Node
++	// GroupParticipants selects who receives this group's sender-key distribution.
++	// The participant hash remains based on the full group.
++	GroupParticipants []types.JID
++	// RotateGroupSenderKey starts a fresh sender-key session before encryption.
++	RotateGroupSenderKey bool
+ }
+ 
+ // SendMessage sends the given message.
+@@ -309,6 +315,11 @@
+ 				return
+ 			}
+ 			groupParticipants = cachedData.Members
++			if len(req.GroupParticipants) > 0 {
++				groupParticipants = req.GroupParticipants
++				extraParams.groupHashParticipants = cachedData.Members
++				extraParams.rotateGroupSenderKey = req.RotateGroupSenderKey
++			}
+ 			// TODO this is fairly hacky, is there a proper way to determine which identity the message is sent with?
+ 			if cachedData.AddressingMode == types.AddressingModeLID {
+ 				ownID = cli.getOwnLID()
+@@ -751,11 +762,13 @@
+ }
+ 
+ type nodeExtraParams struct {
+-	botNode         *waBinary.Node
+-	metaNode        *waBinary.Node
+-	additionalNodes *[]waBinary.Node
+-	addressingMode  types.AddressingMode
+-	peerRecipientPN types.JID
++	botNode               *waBinary.Node
++	metaNode              *waBinary.Node
++	additionalNodes       *[]waBinary.Node
++	addressingMode        types.AddressingMode
++	peerRecipientPN       types.JID
++	groupHashParticipants []types.JID
++	rotateGroupSenderKey  bool
+ }
+ 
+ func (cli *Client) sendGroup(
+@@ -778,6 +791,12 @@
+ 	start = time.Now()
+ 	builder := groups.NewGroupSessionBuilder(cli.Store, pbSerializer)
+ 	senderKeyName := protocol.NewSenderKeyName(to.String(), cli.getOwnLID().SignalAddress())
++	if extraParams.rotateGroupSenderKey {
++		emptyRecord := record.NewSenderKey(pbSerializer.SenderKeyRecord, pbSerializer.SenderKeyState)
++		if err = cli.Store.StoreSenderKey(ctx, senderKeyName, emptyRecord); err != nil {
++			return "", nil, fmt.Errorf("failed to rotate sender key before sending %s to %s: %w", id, to, err)
++		}
++	}
+ 	signalSKDMessage, err := builder.Create(ctx, senderKeyName)
+ 	if err != nil {
+ 		return "", nil, fmt.Errorf("failed to create sender key distribution message to send %s to %s: %w", id, to, err)
+@@ -808,7 +827,17 @@
+ 		return "", nil, err
+ 	}
+ 
+-	phash := participantListHashV2(allDevices)
++	phashDevices := allDevices
++	if len(extraParams.groupHashParticipants) > 0 {
++		phashDevices, err = cli.GetUserDevices(ctx, extraParams.groupHashParticipants)
++		if err != nil {
++			return "", nil, fmt.Errorf("failed to get full group device list for participant hash: %w", err)
++		}
++		phashDevices = slices.DeleteFunc(phashDevices, func(jid types.JID) bool {
++			return jid.Server == types.HostedServer || jid.Server == types.HostedLIDServer
++		})
++	}
++	phash := participantListHashV2(phashDevices)
+ 	node.Attrs["phash"] = phash
+ 	skMsg := waBinary.Node{
+ 		Tag:     "enc",
