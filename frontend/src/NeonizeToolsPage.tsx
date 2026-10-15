@@ -31,6 +31,7 @@ export function NeonizeToolsPage() {
   const [phone, setPhone] = useState('')
   const [to, setTo] = useState('')
   const [text, setText] = useState('')
+  const [adDraftText, setAdDraftText] = useState('')
   const [title, setTitle] = useState('Utusan')
   const [advertiser, setAdvertiser] = useState('Utusan.chat')
   const [sourceApp, setSourceApp] = useState('Utusan.chat')
@@ -266,6 +267,9 @@ export function NeonizeToolsPage() {
             </div>
             <Field label="URL tujuan tombol" hint="Harus URL HTTPS."><input type="url" value={sourceUrl} onChange={event => setSourceUrl(event.target.value)} placeholder="https://contoh.com" required /></Field>
             <Field label="URL gambar pratinjau (opsional)" hint="Gambar dimuat oleh WhatsApp dari URL ini."><input type="url" value={imageUrl} onChange={event => setImageUrl(event.target.value)} placeholder="https://contoh.com/gambar.jpg" /></Field>
+            <Field label="Teks pesan" hint="Untuk draf di halaman ini saja; tidak dikirim ke WhatsApp bersama kartu iklan.">
+              <textarea value={adDraftText} onChange={event => setAdDraftText(event.target.value)} rows={4} maxLength={4000} placeholder="Tulis pesan untuk catatan…" />
+            </Field>
           </>}
 
           {tool === 'after-read' && <>

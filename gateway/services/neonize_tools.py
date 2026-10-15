@@ -79,6 +79,11 @@ def build_ad_message(
         "merchant_url": source_url,
     }
     interactive = InteractiveMessage(
+        # Native-flow messages must carry the standard interactive envelope.
+        # Keep the body and footer empty so this remains an ad card only.
+        header=InteractiveMessage.Header(),
+        body=InteractiveMessage.Body(text=""),
+        footer=InteractiveMessage.Footer(text=""),
         nativeFlowMessage=InteractiveMessage.NativeFlowMessage(
             buttons=[
                 InteractiveMessage.NativeFlowMessage.NativeFlowButton(

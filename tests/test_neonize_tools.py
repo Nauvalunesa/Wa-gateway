@@ -18,7 +18,7 @@ class InteractiveAdTests(unittest.TestCase):
 
         self.assertFalse(hasattr(request, "text"))
 
-    def test_ad_message_contains_card_and_cta_without_message_body(self):
+    def test_ad_message_contains_card_and_cta_with_empty_interactive_envelope(self):
         message = build_ad_message(
             title="Utusan",
             advertiser="Utusan.chat",
@@ -29,8 +29,11 @@ class InteractiveAdTests(unittest.TestCase):
         )
 
         interactive = message.interactiveMessage
-        self.assertFalse(interactive.HasField("body"))
-        self.assertFalse(interactive.HasField("footer"))
+        self.assertTrue(interactive.HasField("header"))
+        self.assertTrue(interactive.HasField("body"))
+        self.assertEqual(interactive.body.text, "")
+        self.assertTrue(interactive.HasField("footer"))
+        self.assertEqual(interactive.footer.text, "")
         self.assertTrue(interactive.contextInfo.HasField("externalAdReply"))
         ad = interactive.contextInfo.externalAdReply
         self.assertEqual(ad.title, "Utusan")
