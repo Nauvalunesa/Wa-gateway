@@ -265,7 +265,7 @@ export function NeonizeToolsPage() {
             </div>
             <Field label="URL tujuan iklan" hint="Dibuka saat penerima menekan kartu; label aksi mengikuti WhatsApp."><input type="url" value={sourceUrl} onChange={event => setSourceUrl(event.target.value)} placeholder="https://contoh.com" required /></Field>
             <Field label="URL gambar pratinjau (opsional)" hint="Gambar dimuat oleh WhatsApp dari URL ini."><input type="url" value={imageUrl} onChange={event => setImageUrl(event.target.value)} placeholder="https://contoh.com/gambar.jpg" /></Field>
-            <Field label="Teks pesan" hint="Tampil di isi kartu iklan, bukan sebagai pesan terpisah.">
+            <Field label="Teks pesan" hint="Masuk ke badan iklan. Salam dipicu penerima; gateway tidak mengirim chat teks kedua.">
               <textarea value={adMessageText} onChange={event => setAdMessageText(event.target.value)} rows={4} maxLength={4000} placeholder="Tulis isi iklan atau pengumuman…" required />
             </Field>
           </>}

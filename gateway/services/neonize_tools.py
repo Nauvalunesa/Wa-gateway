@@ -18,6 +18,7 @@ from neonize.proto.waE2E.WAWebProtobufsE2E_pb2 import (
     ContextInfo,
     DisappearingMode,
     ExtendedTextMessage,
+    InteractiveMessage,
     Message,
 )
 
@@ -109,7 +110,7 @@ def build_ad_message(
     source_url: str,
     source_app: str,
 ) -> Message:
-    """Build one ad-preview message with its caption, without a second CTA bubble."""
+    """Build one interactive ad; its greeting is triggered by the recipient."""
     caption = text.strip()
     ad = ContextInfo.ExternalAdReplyInfo(
         title=title,
@@ -134,12 +135,12 @@ def build_ad_message(
     )
     if thumbnail:
         ad.thumbnail = thumbnail
-    return Message(
-        extendedTextMessage=ExtendedTextMessage(
-            text=caption,
-            contextInfo=ContextInfo(externalAdReply=ad),
-        )
+    interactive = InteractiveMessage(
+        body=InteractiveMessage.Body(text=caption),
+        footer=InteractiveMessage.Footer(text=""),
+        contextInfo=ContextInfo(externalAdReply=ad),
     )
+    return Message(interactiveMessage=interactive)
 
 
 def build_after_read_message(text: str, duration_seconds: int) -> Message:
