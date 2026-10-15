@@ -40,6 +40,7 @@ Screenshot memakai data ilustrasi untuk memperlihatkan UI, bukan statistik akun 
 - [Pairing WhatsApp](#pairing-whatsapp)
 - [Jenis pesan](#jenis-pesan)
 - [AI Rich](#ai-rich)
+- [Neonize Tools](#neonize-tools)
 - [Auto Reply](#auto-reply)
 - [Bot CS bertingkat](#bot-cs-bertingkat)
 - [CRM raw message](#crm-raw-message)
@@ -86,6 +87,7 @@ Top bar tetap di atas saat halaman di-scroll pada mobile dan desktop. Tombol nav
 | `/wa-profile` | Nama, about, foto, auto-read, centang biru, terakhir dilihat dan privasi per perangkat |
 | `/tools` | Composer pesan, pilihan tujuan, preview, panduan request dan salin kode |
 | `/airich` | 12 jenis blok, editor, urutan blok, paket seluruh blok, validasi, preview |
+| `/neonize-tools` | Iklan interaktif, pesan after-read, DM anggota grup, SPR grup A/B |
 | `/auto-reply` | Aturan kata pemicu, cakupan chat/grup, cooldown, aktif/nonaktif |
 | `/customer-service` | Bot CS, menu bertingkat, button reply/list, FAQ, kontak admin, simulator |
 | `/crm` | Ekstraksi raw message, JSON lengkap, koleksi DB, aksi, owner tambahan, konversi JID ↔ LID |
@@ -562,6 +564,59 @@ Contoh lokal untuk menghasilkan payload HTML:
 ```
 
 Untuk mengirim dari contoh, tambahkan `--send --to NOMOR --phone PERANGKAT` dan sediakan `UTUSAN_API_KEY` melalui environment lokal.
+
+## Neonize Tools
+
+Buka `/neonize-tools` setelah login. Fitur memakai cookie sesi dashboard dan perangkat WhatsApp milik akun; endpoint ini tidak memakai API key.
+
+| Fitur | Perilaku |
+| --- | --- |
+| Iklan interaktif | Mengirim kartu iklan CTA URL dengan judul, brand, tombol, dan gambar pratinjau opsional. Kartu dikirim tanpa pesan teks terpisah. Tujuan dapat berupa chat atau grup. |
+| Pesan setelah dibaca | Mengirim teks ke chat atau grup dengan metadata dan durasi yang dipilih. Perilaku akhirnya mengikuti dukungan WhatsApp penerima. |
+| DM anggota grup | Memilih anggota dari daftar grup, lalu mengirim pesan sebagai chat pribadi terpisah. Bukan pesan tersembunyi di grup; maksimal 25 penerima. |
+| SPR grup A/B | Memilih grup dan anggota target. Target menerima pesan A; anggota lain menerima teks B melalui alur retry SPR. Fitur memerlukan transport native Neonize yang mendukung SPR. |
+
+Halaman memeriksa kemampuan SPR pada runtime aktif. Jika transport tidak tersedia, pengiriman dinonaktifkan dan endpoint mengembalikan error; pesan tidak dialihkan menjadi DM atau pesan grup biasa. Setelah memasang dependency Neonize, jalankan build native SPR pada langkah instalasi dan restart aplikasi. Pin sumber dan catatan build tersedia di [`patches/README.md`](patches/README.md).
+
+Endpoint berikut hanya menerima sesi login dashboard dengan cookie:
+
+| Method | Endpoint | Parameter utama |
+| --- | --- | --- |
+| GET / PUT | `/api/web/neonize-tools/settings` | `ephemeral_default_seconds` untuk durasi bawaan |
+| GET | `/api/web/neonize-tools/group-participants` | Query `phone`, `group_jid` |
+| GET | `/api/web/neonize-tools/spr/capabilities` | Query `phone`; status dukungan runtime dan perangkat |
+| POST | `/api/web/neonize-tools/ad` | `phone`, `to`, `title`, `advertiser`, `source_url`, `button_label`, opsional `image_url` |
+| POST | `/api/web/neonize-tools/after-read` | `phone`, `to`, `text`, `duration_seconds` |
+| POST | `/api/web/neonize-tools/private-reply` | `phone`, `recipients`, `text` |
+| POST | `/api/web/neonize-tools/spr` | `phone`, `group_jid`, `target_jids`, `target_message`, `decoy_message` |
+
+Contoh berikut memakai cookie login dashboard. Ganti `COOKIE_LOGIN_ANDA` di terminal lokal; cookie memberi akses ke akun dan jangan dibagikan atau dimasukkan ke repository.
+
+```bash
+curl -X POST 'https://utusan.chat/api/web/neonize-tools/ad' \
+  -H 'Origin: https://utusan.chat' \
+  -H 'Content-Type: application/json' \
+  -H 'Cookie: session=COOKIE_LOGIN_ANDA' \
+  --data-raw '{"phone":"62812xxxxxxxx","to":"62813xxxxxxxx","title":"Informasi produk","advertiser":"Utusan.chat","image_url":"https://example.com/produk.jpg","source_url":"https://utusan.chat","source_app":"Utusan.chat","button_label":"Kunjungi website"}'
+
+curl -X POST 'https://utusan.chat/api/web/neonize-tools/after-read' \
+  -H 'Origin: https://utusan.chat' \
+  -H 'Content-Type: application/json' \
+  -H 'Cookie: session=COOKIE_LOGIN_ANDA' \
+  --data-raw '{"phone":"62812xxxxxxxx","to":"120363xxxxxxxx@g.us","text":"Informasi sementara","duration_seconds":60}'
+
+curl -X POST 'https://utusan.chat/api/web/neonize-tools/private-reply' \
+  -H 'Origin: https://utusan.chat' \
+  -H 'Content-Type: application/json' \
+  -H 'Cookie: session=COOKIE_LOGIN_ANDA' \
+  --data-raw '{"phone":"62812xxxxxxxx","recipients":["62813xxxxxxxx","62814xxxxxxxx"],"text":"Halo, berikut informasi untuk Anda."}'
+
+curl -X POST 'https://utusan.chat/api/web/neonize-tools/spr' \
+  -H 'Origin: https://utusan.chat' \
+  -H 'Content-Type: application/json' \
+  -H 'Cookie: session=COOKIE_LOGIN_ANDA' \
+  --data-raw '{"phone":"62812xxxxxxxx","group_jid":"120363xxxxxxxx@g.us","target_jids":["62813xxxxxxxx@s.whatsapp.net"],"target_message":"Pesan khusus untuk target","decoy_message":"Pesan untuk anggota lain"}'
+```
 
 ## Auto Reply
 
