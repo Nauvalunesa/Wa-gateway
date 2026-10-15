@@ -9,7 +9,9 @@ from pydantic import BaseModel, Field, field_validator
 from gateway.database import log_message
 from gateway.security import dashboard_user
 from gateway.services.neonize_tools import (
+    build_ad_message,
     build_after_read_message,
+    download_ad_thumbnail,
     get_settings,
     save_settings,
 )
@@ -36,6 +38,7 @@ class AdSend(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
     title: str = Field(default="Utusan", min_length=1, max_length=80)
     advertiser: str = Field(default="Utusan.chat", max_length=80)
+    button_text: str = Field(default="🌐 Kunjungi Web", min_length=1, max_length=80)
     image_url: str = Field(default="", max_length=2000)
     source_url: str = Field(min_length=8, max_length=2000)
     source_app: str = Field(default="Utusan.chat", min_length=1, max_length=80)
@@ -166,11 +169,32 @@ async def get_spr_capabilities(
 
 @router.post("/api/web/neonize-tools/ad")
 async def send_ad(data: AdSend, username: str = Depends(dashboard_user)):
-    raise HTTPException(
-        409,
-        "Pemicu salam tanpa pesan tidak tersedia. Endpoint dinonaktifkan agar tidak mengirim apa pun. "
-        "Salam WhatsApp Business dikirim otomatis saat pelanggan mengirim pesan pertama atau setelah 14 hari tidak aktif.",
-    )
+    phone = normalize_phone_number(data.phone)
+    client, _ = get_client(username, phone)
+    if not client:
+        raise HTTPException(503, "Pilih perangkat WhatsApp akun ini yang sedang online.")
+    try:
+        target = await get_actual_jid(client, data.to.strip())
+        if target.Server not in {"s.whatsapp.net", "lid", "g.us"}:
+            raise HTTPException(422, "Iklan interaktif hanya dapat dikirim ke chat atau grup.")
+        thumbnail = await asyncio.to_thread(download_ad_thumbnail, data.image_url.strip())
+        message = build_ad_message(
+            text=data.text,
+            thumbnail=thumbnail,
+            title=data.title.strip(),
+            advertiser=data.advertiser.strip(),
+            button_text=data.button_text.strip(),
+            image_url=data.image_url.strip(),
+            source_url=data.source_url.strip(),
+            source_app=data.source_app.strip(),
+        )
+        await client.send_message(target, message)
+        await log_message(username, f"DEVICE({phone})", data.to, f"[AD INTERACTIVE] {data.title}", "OUTGOING")
+        return {"success": True, "device": phone, "to": data.to, "message": "Iklan interaktif dikirim."}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, str(exc)) from exc
 
 
 @router.post("/api/web/neonize-tools/after-read")
