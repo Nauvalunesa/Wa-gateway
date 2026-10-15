@@ -1,4 +1,3 @@
-import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -55,15 +54,6 @@ class InteractiveAdTests(unittest.TestCase):
         self.assertTrue(ad.automatedGreetingMessageShown)
         self.assertEqual(ad.thumbnail, b"small-jpeg-thumbnail")
         self.assertEqual(ad.sourceURL, "https://utusan.chat")
-        self.assertEqual(interactive.footer.text, "Utusan.chat")
-        self.assertEqual(len(interactive.nativeFlowMessage.buttons), 1)
-        button = interactive.nativeFlowMessage.buttons[0]
-        self.assertEqual(button.name, "cta_url")
-        self.assertEqual(json.loads(button.buttonParamsJSON), {
-            "display_text": "🌐 Kunjungi Web",
-            "url": "https://utusan.chat",
-            "merchant_url": "https://utusan.chat",
-        })
 
 
 class ZInteractiveAdRouteTests(unittest.IsolatedAsyncioTestCase):
@@ -76,7 +66,6 @@ class ZInteractiveAdRouteTests(unittest.IsolatedAsyncioTestCase):
             text="Diskon akhir pekan",
             title="Utusan",
             advertiser="Utusan.chat",
-            button_text="Buka situs",
             source_url="https://utusan.chat",
             source_app="Utusan.chat",
         )

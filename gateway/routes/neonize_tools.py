@@ -38,7 +38,6 @@ class AdSend(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
     title: str = Field(default="Utusan", min_length=1, max_length=80)
     advertiser: str = Field(default="Utusan.chat", max_length=80)
-    button_text: str = Field(default="🌐 Kunjungi Web", min_length=1, max_length=80)
     image_url: str = Field(default="", max_length=2000)
     source_url: str = Field(min_length=8, max_length=2000)
     source_app: str = Field(default="Utusan.chat", min_length=1, max_length=80)
@@ -183,7 +182,6 @@ async def send_ad(data: AdSend, username: str = Depends(dashboard_user)):
             thumbnail=thumbnail,
             title=data.title.strip(),
             advertiser=data.advertiser.strip(),
-            button_text=data.button_text.strip(),
             image_url=data.image_url.strip(),
             source_url=data.source_url.strip(),
             source_app=data.source_app.strip(),

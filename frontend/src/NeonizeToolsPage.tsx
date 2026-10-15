@@ -34,7 +34,6 @@ export function NeonizeToolsPage() {
   const [adMessageText, setAdMessageText] = useState('')
   const [title, setTitle] = useState('Utusan')
   const [advertiser, setAdvertiser] = useState('Utusan.chat')
-  const [buttonText, setButtonText] = useState('🌐 Kunjungi Web')
   const [sourceApp, setSourceApp] = useState('Utusan.chat')
   const [sourceUrl, setSourceUrl] = useState('https://utusan.chat')
   const [imageUrl, setImageUrl] = useState('')
@@ -120,11 +119,10 @@ export function NeonizeToolsPage() {
     text: adMessageText,
     title,
     advertiser,
-    button_text: buttonText,
     image_url: imageUrl,
     source_url: sourceUrl,
     source_app: sourceApp,
-  }), [phone, target, adMessageText, title, advertiser, buttonText, imageUrl, sourceUrl, sourceApp])
+  }), [phone, target, adMessageText, title, advertiser, imageUrl, sourceUrl, sourceApp])
 
   const recipientList = [...new Set([
     ...selectedRecipients,
@@ -265,7 +263,6 @@ export function NeonizeToolsPage() {
               <Field label="Nama brand / pengiklan"><input value={advertiser} onChange={event => setAdvertiser(event.target.value)} maxLength={80} /></Field>
               <Field label="Nama aplikasi sumber"><input value={sourceApp} onChange={event => setSourceApp(event.target.value)} maxLength={80} /></Field>
             </div>
-            <Field label="Teks tombol"><input value={buttonText} onChange={event => setButtonText(event.target.value)} maxLength={80} required /></Field>
             <Field label="URL tujuan iklan" hint="Dibuka saat penerima menekan kartu; label aksi mengikuti WhatsApp."><input type="url" value={sourceUrl} onChange={event => setSourceUrl(event.target.value)} placeholder="https://contoh.com" required /></Field>
             <Field label="URL gambar pratinjau (opsional)" hint="Gambar dimuat oleh WhatsApp dari URL ini."><input type="url" value={imageUrl} onChange={event => setImageUrl(event.target.value)} placeholder="https://contoh.com/gambar.jpg" /></Field>
             <Field label="Teks pesan" hint="Masuk ke badan iklan. Salam dipicu penerima; gateway tidak mengirim chat teks kedua.">
