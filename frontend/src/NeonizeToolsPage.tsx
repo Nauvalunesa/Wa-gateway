@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Eye, MessageCircle, Send, Shield, Timer, Users, Zap } from 'lucide-react'
 import { api, post, query, useResource, type Device } from './api'
 import { Button, Card, CardTitle, DeviceSelect, ErrorBox, Field, Heading, ResponseBox, useToast } from './components'
@@ -11,10 +11,7 @@ type Group = { jid: string; name: string }
 type GroupParticipant = { jid: string; spr_jid: string; phone: string; lid: string; is_admin: boolean; is_super_admin: boolean; is_self: boolean }
 type SPRCapability = { supported: boolean; connected: boolean; method: string; reason: string }
 
-const tabs = [['ad', 'Iklan interaktif'], ['after-read', 'Pesan setelah dibaca'], ['spr', 'SPR grup A/B'], ['private-reply', 'DM anggota grup']]
-const safeImageUrl = (value: string) => {
-  try { const url = new URL(value); return url.protocol === 'https:' ? url.href : '' } catch { return '' }
-}
+const tabs = [['ad', 'Salam otomatis WA'], ['after-read', 'Pesan setelah dibaca'], ['spr', 'SPR grup A/B'], ['private-reply', 'DM anggota grup']]
 const sprEndpointError = (cause: unknown, feature: string) => {
   const message = cause instanceof Error ? cause.message : String(cause || '')
   if (/\bnot found\b/i.test(message)) {
@@ -31,13 +28,6 @@ export function NeonizeToolsPage() {
   const [phone, setPhone] = useState('')
   const [to, setTo] = useState('')
   const [text, setText] = useState('')
-  const [adMessageText, setAdMessageText] = useState('')
-  const [title, setTitle] = useState('Utusan')
-  const [advertiser, setAdvertiser] = useState('Utusan.chat')
-  const [buttonText, setButtonText] = useState('🌐 Kunjungi Web')
-  const [sourceApp, setSourceApp] = useState('Utusan.chat')
-  const [sourceUrl, setSourceUrl] = useState('https://utusan.chat')
-  const [imageUrl, setImageUrl] = useState('')
   const [duration, setDuration] = useState('60')
   const [recipients, setRecipients] = useState('')
   const [sprTargetMessage, setSprTargetMessage] = useState('')
@@ -114,18 +104,6 @@ export function NeonizeToolsPage() {
   }, [phone, tool])
 
   const target = destination === 'group' ? groupJid : to
-  const adPayload = useMemo(() => ({
-    phone,
-    to: target,
-    text: adMessageText,
-    title,
-    advertiser,
-    button_text: buttonText,
-    image_url: imageUrl,
-    source_url: sourceUrl,
-    source_app: sourceApp,
-  }), [phone, target, adMessageText, title, advertiser, buttonText, imageUrl, sourceUrl, sourceApp])
-
   const recipientList = [...new Set([
     ...selectedRecipients,
     ...recipients.split(/[\n,]/).map(value => value.trim()).filter(Boolean),
@@ -141,12 +119,6 @@ export function NeonizeToolsPage() {
     const queryText = participantSearch.trim().toLowerCase()
     return !queryText || `${person.phone} ${person.jid} ${person.lid}`.toLowerCase().includes(queryText)
   })
-
-  async function sendAd(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError(''); setResult(null)
-    try { const response = await post<Result>('/api/web/neonize-tools/ad', adPayload); setResult(response); notify('Iklan interaktif dikirim.') }
-    catch (cause) { setError((cause as Error).message) } finally { setBusy(false) }
-  }
 
   async function saveDuration() {
     const value = Number(duration)
@@ -194,18 +166,19 @@ export function NeonizeToolsPage() {
     } catch (cause) { setError((cause as Error).message) } finally { setBusy(false) }
   }
 
-  const request = tool === 'ad' ? { method: 'POST', url: '/api/web/neonize-tools/ad', body: adPayload }
+  const request = tool === 'ad' ? null
     : tool === 'after-read' ? { method: 'POST', url: '/api/web/neonize-tools/after-read', body: { phone, to: target, text, duration_seconds: Number(duration) } }
       : tool === 'spr' ? { method: 'POST', url: '/api/web/neonize-tools/spr', body: sprPayload }
         : { method: 'POST', url: '/api/web/neonize-tools/private-reply', body: { phone, recipients: recipientList, text } }
 
   return <>
-    <Heading eyebrow="NEONIZE TOOLS" title="Alat pesan tambahan" description="Susun kartu interaktif, pesan setelah dibaca, dan SPR grup. Pilih tujuan dari daftar." />
+    <Heading eyebrow="NEONIZE TOOLS" title="Alat pesan tambahan" description="Kelola salam otomatis WhatsApp Business dan fitur pesan tambahan." />
     <MessageTypeTabs types={tabs} selected={tool} onChange={value => { setTool(value as Tool); setError(''); setResult(null) }} />
     <div className="composer-grid neonize-tools-grid">
       <Card>
-          <CardTitle title={tool === 'ad' ? 'Iklan interaktif' : tool === 'after-read' ? 'Pesan setelah dibaca' : tool === 'spr' ? 'SPR grup A/B' : 'DM anggota grup'} subtitle="Pengiriman memakai sesi WhatsApp milik akun ini." />
-        <form onSubmit={tool === 'ad' ? sendAd : tool === 'after-read' ? sendAfterRead : tool === 'spr' ? sendSpr : sendPrivate}>
+          <CardTitle title={tool === 'ad' ? 'Salam otomatis WhatsApp' : tool === 'after-read' ? 'Pesan setelah dibaca' : tool === 'spr' ? 'SPR grup A/B' : 'DM anggota grup'} subtitle={tool === 'ad' ? 'Tidak ada pesan keluar dari halaman ini.' : 'Pengiriman memakai sesi WhatsApp milik akun ini.'} />
+        {tool === 'ad' ? <div className="small-tip"><Shield size={18} /><div><strong>Tidak ada pemicu salam tanpa pesan masuk.</strong><p>WhatsApp Business mengirim salam otomatis setelah pelanggan mengirim pesan pertama atau setelah 14 hari tidak aktif. Aktifkan Salam di aplikasi WhatsApp Business; gateway ini tidak mengirim pesan atau trigger tersembunyi.</p></div></div> : <>
+        <form onSubmit={tool === 'after-read' ? sendAfterRead : tool === 'spr' ? sendSpr : sendPrivate}>
           <DeviceSelect devices={deviceData?.devices || []} value={phone} onChange={setPhone} />
           {tool === 'private-reply' || tool === 'spr' ? <>
             <Field label={tool === 'spr' ? 'Pilih grup tujuan SPR' : 'Pilih grup untuk mencari anggota (opsional)'} hint={tool === 'spr' ? 'Pesan A dan decoy B sama-sama dikirim dalam grup ini.' : 'Pilih grup, lalu centang anggota yang akan menerima DM pribadi.'}>
@@ -259,20 +232,6 @@ export function NeonizeToolsPage() {
             </Field>}
           </>}
 
-          {tool === 'ad' && <>
-            <div className="form-grid neonize-tools-fields">
-              <Field label="Judul kartu"><input value={title} onChange={event => setTitle(event.target.value)} maxLength={80} required /></Field>
-              <Field label="Nama brand / pengiklan"><input value={advertiser} onChange={event => setAdvertiser(event.target.value)} maxLength={80} /></Field>
-              <Field label="Nama aplikasi sumber"><input value={sourceApp} onChange={event => setSourceApp(event.target.value)} maxLength={80} /></Field>
-            </div>
-            <Field label="Teks tombol"><input value={buttonText} onChange={event => setButtonText(event.target.value)} maxLength={80} required /></Field>
-            <Field label="URL tujuan iklan" hint="Dibuka saat penerima menekan kartu; label aksi mengikuti WhatsApp."><input type="url" value={sourceUrl} onChange={event => setSourceUrl(event.target.value)} placeholder="https://contoh.com" required /></Field>
-            <Field label="URL gambar pratinjau (opsional)" hint="Gambar dimuat oleh WhatsApp dari URL ini."><input type="url" value={imageUrl} onChange={event => setImageUrl(event.target.value)} placeholder="https://contoh.com/gambar.jpg" /></Field>
-            <Field label="Teks pesan" hint="Masuk ke badan iklan. Salam dipicu penerima; gateway tidak mengirim chat teks kedua.">
-              <textarea value={adMessageText} onChange={event => setAdMessageText(event.target.value)} rows={4} maxLength={4000} placeholder="Tulis isi iklan atau pengumuman…" required />
-            </Field>
-          </>}
-
           {tool === 'after-read' && <>
             <Field label="Isi pesan"><textarea value={text} onChange={event => setText(event.target.value)} rows={4} maxLength={4000} placeholder="Tulis pesan…" required /></Field>
             <div className="neonize-duration-row">
@@ -298,27 +257,20 @@ export function NeonizeToolsPage() {
 
           {tool === 'private-reply' && <div className="small-tip"><MessageCircle size={18} /><div><strong>Pesan privat biasa.</strong><p>Setiap penerima mendapat chat langsung. Fitur ini tidak menyisipkan pesan tersembunyi ke dalam grup.</p></div></div>}
           <ErrorBox error={error} />
-          <Button type="submit" busy={busy} disabled={!phone || (tool === 'private-reply' && !recipientList.length) || (tool === 'spr' && (!sprCapability?.supported || !sprCapability.connected || !groupJid || !selectedRecipients.length))}><Send size={16} />{tool === 'ad' ? 'Kirim iklan interaktif' : tool === 'after-read' ? 'Kirim pesan sementara' : tool === 'spr' ? 'Kirim SPR ke grup' : 'Kirim ke penerima terpilih'}</Button>
+          <Button type="submit" busy={busy} disabled={!phone || (tool === 'private-reply' && !recipientList.length) || (tool === 'spr' && (!sprCapability?.supported || !sprCapability.connected || !groupJid || !selectedRecipients.length))}><Send size={16} />{tool === 'after-read' ? 'Kirim pesan sementara' : tool === 'spr' ? 'Kirim SPR ke grup' : 'Kirim ke penerima terpilih'}</Button>
         </form>
         <ResponseBox result={result} />
-        <details className="neonize-request">
+        {request && <details className="neonize-request">
           <summary>URL endpoint dan payload lengkap</summary>
           <div><code>{request.method} {window.location.origin}{request.url}</code><pre>{JSON.stringify(request.body, null, 2)}</pre><small>Otentikasi web memakai cookie sesi akun; tidak perlu API key.</small></div>
-        </details>
+        </details>}
+        </>}
       </Card>
 
       <aside className="composer-side neonize-tools-preview">
-        {tool === 'ad' ? <Card className="neonize-ad-card">
-          <CardTitle title="Pratinjau iklan" subtitle="Ilustrasi kartu; tampilan akhir mengikuti WhatsApp penerima." />
-          <div className="neonize-ad-preview">
-            {safeImageUrl(imageUrl) && <img src={safeImageUrl(imageUrl)} alt="Pratinjau iklan" />}
-            <strong>{title || 'Judul kartu'}</strong>
-            <small>Lihat detail</small>
-            <p>
-              {adMessageText || 'Teks pesan iklan tampil di sini.'}
-            </p>
-            <small>Salam otomatis</small>
-          </div>
+        {tool === 'ad' ? <Card>
+          <CardTitle title="Cara kerja salam otomatis" subtitle="Dipicu oleh pesan masuk dari pelanggan." />
+          <div className="neonize-text-preview"><span>WHATSAPP BUSINESS</span><p>Aktifkan salam di setelan aplikasi WhatsApp Business. WhatsApp akan mengirimkannya saat pelanggan memulai chat atau menghubungi kembali setelah 14 hari.</p><small><MessageCircle size={13} /> Pesan pemicu harus dikirim oleh pelanggan ke akun ini.</small></div>
         </Card> : tool === 'spr' ? <Card>
           <CardTitle title="Pratinjau SPR grup" subtitle="Target melihat A; anggota lain melihat B melalui alur retry." />
           <div className="neonize-spr-preview">
@@ -329,7 +281,7 @@ export function NeonizeToolsPage() {
           <CardTitle title={tool === 'after-read' ? 'Pratinjau pesan' : 'Tujuan DM'} subtitle={tool === 'after-read' ? 'Metadata akan dikirim bersama isi pesan.' : 'Fitur ini mengirim DM biasa kepada anggota yang dipilih.'} />
           <div className="neonize-text-preview"><span>{tool === 'after-read' ? 'PESAN SETELAH DIBACA' : 'CHAT LANGSUNG'}</span><p>{text || (tool === 'after-read' ? 'Isi pesan tampil di sini.' : 'Isi balasan tampil di sini.')}</p>{tool === 'after-read' && <small><Timer size={13} /> Durasi: {duration || 0} detik</small>}{tool === 'private-reply' && <small><MessageCircle size={13} /> {recipientList.length} penerima · dikirim sebagai DM biasa</small>}{tool === 'after-read' && <small><MessageCircle size={13} /> Tujuan: {destination === 'group' ? groups.find(group => group.jid === groupJid)?.name || 'Pilih grup' : to || 'Pilih nomor'}</small>}</div>
         </Card>}
-        <div className="small-tip"><Zap size={18} /><div><strong>Fitur memakai protobuf Neonize.</strong><p>{tool === 'spr' ? sprCapability?.supported ? sprCapability.connected ? 'Transport khusus Neonize aktif; target dan decoy akan dikirim sebagai satu fitur SPR grup.' : 'Transport SPR ada, sambungkan perangkat WhatsApp untuk mengirim.' : 'Pesan A/B dan daftar target sudah disiapkan. Pengiriman menunggu dukungan transport SPR pada Neonize yang terpasang.' : tool === 'ad' ? 'Caption dan pratinjau iklan dikirim sebagai satu pesan. Tautan dibuka dari kartu WhatsApp.' : 'Pengiriman biasa tetap tersedia di halaman Kirim pesan.'}</p></div></div>
+        <div className="small-tip"><Zap size={18} /><div><strong>Fitur memakai protobuf Neonize.</strong><p>{tool === 'spr' ? sprCapability?.supported ? sprCapability.connected ? 'Transport khusus Neonize aktif; target dan decoy akan dikirim sebagai satu fitur SPR grup.' : 'Transport SPR ada, sambungkan perangkat WhatsApp untuk mengirim.' : 'Pesan A/B dan daftar target sudah disiapkan. Pengiriman menunggu dukungan transport SPR pada Neonize yang terpasang.' : tool === 'ad' ? 'Tidak ada pesan atau trigger tersembunyi yang dikirim. Salam dijalankan oleh WhatsApp Business setelah pesan pelanggan masuk.' : 'Pengiriman biasa tetap tersedia di halaman Kirim pesan.'}</p></div></div>
       </aside>
     </div>
   </>
