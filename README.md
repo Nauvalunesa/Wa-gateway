@@ -571,7 +571,7 @@ Buka `/neonize-tools` setelah login. Fitur memakai cookie sesi dashboard dan per
 
 | Fitur | Perilaku |
 | --- | --- |
-| Iklan interaktif | Mengirim satu `InteractiveMessage` dengan `ExternalAdReply`, caption di badan iklan, pratinjau gambar opsional, dan salam yang dipicu penerima. Tidak mengirim chat teks kedua. Tujuan dapat berupa chat atau grup. |
+| Iklan interaktif | Mengirim satu `InteractiveMessage` bergaya CTA URL seperti `ads.py`, dengan `ExternalAdReply`, caption, tombol URL, pratinjau gambar opsional, dan metadata salam otomatis. Tidak mengirim chat teks kedua. Tujuan dapat berupa chat atau grup. |
 | Pesan setelah dibaca | Mengirim teks ke chat atau grup dengan metadata dan durasi yang dipilih. Perilaku akhirnya mengikuti dukungan WhatsApp penerima. |
 | DM anggota grup | Memilih anggota dari daftar grup, lalu mengirim pesan sebagai chat pribadi terpisah. Bukan pesan tersembunyi di grup; maksimal 25 penerima. |
 | SPR grup A/B | Memilih grup dan anggota target. Target menerima pesan A; anggota lain menerima teks B melalui alur retry SPR. Fitur memerlukan transport native Neonize yang mendukung SPR. |

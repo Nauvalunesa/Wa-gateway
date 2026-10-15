@@ -106,11 +106,12 @@ def build_ad_message(
     thumbnail: bytes | None = None,
     title: str,
     advertiser: str,
+    button_text: str = "🌐 Kunjungi Web",
     image_url: str,
     source_url: str,
     source_app: str,
 ) -> Message:
-    """Build one interactive ad; its greeting is triggered by the recipient."""
+    """Build the single CTA-URL interactive ad used by the ads.py example."""
     caption = text.strip()
     ad = ContextInfo.ExternalAdReplyInfo(
         title=title,
@@ -135,9 +136,23 @@ def build_ad_message(
     )
     if thumbnail:
         ad.thumbnail = thumbnail
+    button_payload = {
+        "display_text": button_text.strip() or "🌐 Kunjungi Web",
+        "url": source_url,
+        "merchant_url": source_url,
+    }
     interactive = InteractiveMessage(
         body=InteractiveMessage.Body(text=caption),
-        footer=InteractiveMessage.Footer(text=""),
+        footer=InteractiveMessage.Footer(text=advertiser),
+        nativeFlowMessage=InteractiveMessage.NativeFlowMessage(
+            buttons=[
+                InteractiveMessage.NativeFlowMessage.NativeFlowButton(
+                    name="cta_url",
+                    buttonParamsJSON=json.dumps(button_payload, ensure_ascii=False),
+                )
+            ],
+            messageVersion=1,
+        ),
         contextInfo=ContextInfo(externalAdReply=ad),
     )
     return Message(interactiveMessage=interactive)
